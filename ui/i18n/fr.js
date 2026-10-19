@@ -233,6 +233,8 @@ export default {
     interactive: "Réessayer avec l’installateur",
     interactiveTip: "Relance l’installation en affichant l’installateur du logiciel, pour suivre ses étapes vous-même.",
     download: "Ouvrir la page de téléchargement",
+    ignoreVersion: "Ignorer la version {version}",
+    ignoreVersionTip: "Ne plus proposer cette version. La mise à jour suivante sera proposée normalement.",
     code: "Code de sortie : {code}",
     logTitle: "Détail technique",
     logTip: "Dernières lignes renvoyées par l’installateur, utiles pour un diagnostic.",
@@ -460,6 +462,11 @@ export default {
       label: "Aussi géré par {other}",
       title: "Géré par deux gestionnaires",
       text: "Ce logiciel semble aussi installé ou suivi par {other}. Mettez-le à jour avec un seul gestionnaire pour éviter les conflits.",
+    },
+    stale_installer: {
+      label: "Fiche winget erronée",
+      title: "Cette mise à jour ne changera rien",
+      text: "La fiche winget de cette version télécharge en réalité l’installateur de la version {version}, déjà installée. L’installation se terminerait sans erreur mais ne changerait rien, et la mise à jour reviendrait à chaque analyse. C’est une erreur du catalogue winget, en général corrigée en quelques jours : ignorez cette version en attendant.",
     },
     unknown: {
       label: "Autre raison",
@@ -832,6 +839,7 @@ export default {
     reboot_required: { title: "Redémarrage en attente", text: "Windows attend un redémarrage pour finir une installation précédente. Redémarrez le PC puis réessayez." },
     no_network: { title: "Pas de connexion", text: "Le téléchargement a échoué faute de connexion Internet. Vérifiez votre réseau puis réessayez." },
     download_failed: { title: "Téléchargement refusé", text: "Le serveur de l’éditeur a refusé ou interrompu le téléchargement (lien périmé, site en maintenance…). Rien n’a été installé. Réessayez plus tard, ou téléchargez la mise à jour sur le site de l’éditeur." },
+    no_effect: { title: "Installation sans effet", text: "L’installateur s’est terminé sans erreur, mais le logiciel est toujours dans la même version. Souvent, la fiche du catalogue winget fournit par erreur l’ancien installateur. Ignorez cette version : elle ne vous sera plus proposée, et la mise à jour suivante le sera normalement." },
     disk_full: { title: "Disque plein", text: "Il n’y a plus assez d’espace sur le disque. Libérez de la place (corbeille, fichiers temporaires) puis réessayez." },
     cancelled_by_user: { title: "Annulé", text: "L’installation a été annulée, depuis l’installateur ou la fenêtre d’autorisation." },
     blocked_by_policy: { title: "Bloqué par une stratégie", text: "Une règle de votre organisation ou de Windows interdit cette installation. Contactez l’administrateur du PC." },

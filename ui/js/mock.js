@@ -347,6 +347,15 @@ async function runBatch(jobs, closeApps, allowElevation) {
       continue;
     }
 
+    if (job.key === 'winget:Microsoft.VisualStudioCode' && job.action?.type === 'upgrade') {
+      await sleep(1500 / SPEED);
+      finish(job, {
+        type: 'failed', code: 0, kind: 'no_effect',
+        logExcerpt: `The installer finished without error, but Windows still reports version ${job.fromVersion}.`,
+      }, t0, est, est.download);
+      continue;
+    }
+
     // ---- install
     const withFraction = ['msi', 'wix', 'burn', 'inno'].includes(job.installerType);
     const messages = ['Starting package install…', 'Extracting files…', 'Registering components…', 'Finishing…'];

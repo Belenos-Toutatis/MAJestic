@@ -39,13 +39,13 @@ HTML/CSS/JS sans étape de build), en **français et anglais**.
 ## Commandes
 
 ```bash
-cargo test --workspace                 # ~154 tests, tous doivent passer
+cargo test --workspace                 # ~157 tests, tous doivent passer
 cargo clippy --workspace --all-targets # doit rester sans avertissement
 cargo build --release -p majestic      # → target/release/MAJestic.exe
 cargo run -p majestic-core --example scan -- --json      # analyse complète (--lookup : + recherche en ligne)
-cargo run -p majestic-core --example job -- <source> <id> [version]
+cargo run -p majestic-core --example job -- <source> <id> [version] [--from V --to V]
 cargo run -p majestic-core --example stream -- winget download --id X -d C:\tmp
-python -m http.server -d ui            # interface dans un navigateur, backend simulé
+python -m http.server -d ui            # interface dans un navigateur, backend simulé (.claude/launch.json : « ui-mock »)
 ```
 
 - Fermer `MAJestic.exe` avant de recompiler (sinon « Accès refusé », exe verrouillé).
@@ -97,6 +97,12 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `cac
   `HEAD` sur l'URL du manifeste winget.
 - **Codes d'erreur** : `winget/codes.rs`. Les codes HTTP (`0x8019xxxx`) donnent
   `DownloadFailed` (ex. 403 du serveur de l'éditeur, cas réel de Xodo : pas un bug).
+- **Fiches winget erronées** : `intel::manifest::stale_installer` repère une fiche dont
+  l'URL d'installateur porte la version installée et pas celle annoncée (cas réel :
+  VS Code 1.142.0 livrait le setup 1.141.2, la mise à jour revenait sans fin) → raison
+  `StaleInstaller`, élément non coché. Après chaque mise à jour winget réussie,
+  `jobs::unchanged_version` relit la version (`winget list --id`, 3 essais sur ~20 s) ;
+  inchangée → `FailureKind::NoEffect`, avec le bouton « Ignorer la version ».
 - **Retour arrière** : winget, Microsoft Store et Chocolatey (`choco::list_versions`).
 - **Vérification planifiée** : tâche « MAJestic UpdateCheck » (XML UTF-16 LE avec BOM,
   `StartWhenAvailable`, lance `--check`). Toasts via l'AUMID `MAJestic.UpdateAssistant`

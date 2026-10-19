@@ -6,7 +6,7 @@ import { icon } from '../icons.js';
 import { t, fmt } from '../i18n.js';
 import { state, itemByKey } from '../state.js';
 import { stateType, failureInfo, needsElevation } from '../model.js';
-import { startJobs, backToResults, go, openUrl, openLogs, webSearchUrl } from '../actions.js';
+import { startJobs, backToResults, go, openUrl, openLogs, webSearchUrl, ignoreItem } from '../actions.js';
 import { avatar } from '../components/avatar.js';
 import { button, banner, emptyState, badge } from '../components/widgets.js';
 
@@ -187,6 +187,12 @@ function failureCard(entry, run) {
         actions.push(button({ label: t('summary.download'), icon: 'external', size: 'small', tip: [t('summary.download'), url], onClick: () => openUrl(url) }));
         break;
       }
+      case 'ignoreVersion':
+        if (job.toVersion) {
+          const label = t('summary.ignoreVersion', { version: job.toVersion });
+          actions.push(button({ label, icon: 'eye-off', size: 'small', variant: 'primary', tip: [label, t('summary.ignoreVersionTip')], onClick: () => ignoreItem(item, job.toVersion) }));
+        }
+        break;
       case 'logs':
         actions.push(button({ label: t('common.openLogs'), icon: 'folder', size: 'small', variant: 'subtle', tip: [t('common.openLogs'), t('common.openLogsTip')], onClick: openLogs }));
         break;

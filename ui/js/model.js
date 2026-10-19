@@ -142,6 +142,7 @@ const REASON_META = {
   pinned: { tone: 'uncertain', icon: 'pin' },
   app_running: { tone: 'warning', icon: 'activity' },
   duplicate_manager: { tone: 'uncertain', icon: 'duplicate' },
+  stale_installer: { tone: 'warning', icon: 'warning' },
 };
 
 function exposureLabel(category) {
@@ -188,6 +189,9 @@ export function describeReason(reason) {
     }
     case 'duplicate_manager':
       p.other = sourceInfo(reason.other).label;
+      break;
+    case 'stale_installer':
+      p.version = reason.installerVersion || '?';
       break;
     default:
       break;
@@ -248,6 +252,7 @@ const FAILURE_ACTIONS = {
   elevation_required: ['retry'],
   elevation_refused: ['retry', 'noAdmin'],
   installer_failed: ['interactive', 'retry'],
+  no_effect: ['ignoreVersion', 'download'],
   timeout: ['interactive', 'retry'],
   unknown: ['interactive', 'logs'],
 };

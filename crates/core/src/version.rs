@@ -179,9 +179,42 @@ pub fn is_major_jump(from: &str, to: &str) -> bool {
     true
 }
 
+/// Dotted version tokens (`1.2`, `1.141.2`, `2026.3.0.1`) found in `text`,
+/// such as the file name of an installer URL. Bare numbers are left out.
+pub fn versions_in_text(text: &str) -> Vec<String> {
+    fn flush(current: &mut String, found: &mut Vec<String>) {
+        let token = current.trim_end_matches('.');
+        if token.contains('.') && !token.contains("..") {
+            found.push(token.to_string());
+        }
+        current.clear();
+    }
+    let mut found = Vec::new();
+    let mut current = String::new();
+    for c in text.chars() {
+        if c.is_ascii_digit() || (c == '.' && !current.is_empty()) {
+            current.push(c);
+        } else {
+            flush(&mut current, &mut found);
+        }
+    }
+    flush(&mut current, &mut found);
+    found
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn versions_found_in_urls() {
+        let url = "https://vscode.download.prss.microsoft.com/dbazure/download/stable/\
+                   16507d91be0dc1ce4f94c04d4d0430210b8685d9/VSCodeUserSetup-x64-1.141.2.exe";
+        assert_eq!(versions_in_text(url), ["1.141.2"]);
+        assert_eq!(versions_in_text("https://example.com/v2.0/app-2.3.10.msi"), ["2.0", "2.3.10"]);
+        assert!(versions_in_text("https://7-zip.org/a/7z2501-x64.exe").is_empty());
+        assert!(versions_in_text("https://example.com/download?id=42").is_empty());
+    }
 
     #[test]
     fn basic_ordering() {

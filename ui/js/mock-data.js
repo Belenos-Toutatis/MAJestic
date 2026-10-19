@@ -142,7 +142,8 @@ export function buildDataset() {
       links: { homepage: 'https://code.visualstudio.com/', download: 'https://code.visualstudio.com/download', releaseNotes: 'https://code.visualstudio.com/updates', support: null },
       releaseNotes: 'Improvements to the terminal, chat and source control views.',
       downloadSize: 105 * MB, installerType: 'inno',
-      assessment: { priority: 'normal', preselect: true, reasons: [] },
+      // A broken winget manifest that ships the installed version again.
+      assessment: { priority: 'normal', preselect: false, reasons: [{ type: 'stale_installer', installerVersion: '1.104.3' }] },
       alternatives: [{ type: 'install_version' }],
     }),
     item({

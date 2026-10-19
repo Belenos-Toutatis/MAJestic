@@ -504,8 +504,10 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
             }
         }
         // winget leaves these out of `upgrade --all` on purpose (the
-        // publisher asked for it): the user decides.
-        if item.ignored || item.explicit_only {
+        // publisher asked for it): the user decides. A stale installer would
+        // change nothing.
+        let stale = item.assessment.reasons.iter().any(|r| matches!(r, Reason::StaleInstaller { .. }));
+        if item.ignored || item.explicit_only || stale {
             item.assessment.preselect = false;
         }
     }
@@ -579,6 +581,7 @@ fn enrich_from_manifests(items: &mut [UpdateItem], cache: &std::path::Path, prog
     struct Found {
         meta: Option<intel::manifest::ManifestMeta>,
         installer_type: Option<String>,
+        url: Option<String>,
         size: Option<u64>,
     }
     let inputs: Vec<(usize, String, String, Option<Scope>)> = targets
@@ -603,7 +606,8 @@ fn enrich_from_manifests(items: &mut [UpdateItem], cache: &std::path::Path, prog
                     .ok()
                     .and_then(|list| intel::manifest::pick_installer(&list, *scope).cloned());
                 let size = installer.as_ref().and_then(|i| intel::http::content_length(&i.url));
-                let found = Found { meta, installer_type: installer.and_then(|i| i.installer_type), size };
+                let (url, installer_type) = installer.map(|i| (Some(i.url), i.installer_type)).unwrap_or_default();
+                let found = Found { meta, installer_type, url, size };
                 if let Ok(mut r) = results.lock() {
                     r.push((*n, found));
                 }
@@ -630,6 +634,14 @@ fn enrich_from_manifests(items: &mut [UpdateItem], cache: &std::path::Path, prog
         }
         item.installer_type = found.installer_type;
         item.download_size = found.size;
+        if let (Some(url), Some(installed), Some(available), VersionCertainty::Exact) =
+            (found.url.as_deref(), item.installed_version.as_deref(), item.available_version.as_deref(), item.version_certainty)
+        {
+            if let Some(v) = intel::manifest::stale_installer(url, installed, available) {
+                log::info!("{}: the {available} manifest ships the {v} installer ({url})", item.key);
+                item.assessment.reasons.push(Reason::StaleInstaller { installer_version: v });
+            }
+        }
     }
     report(progress, ScanStep::ReleaseNotes, StepState::Done, None, Some(1.0));
 }

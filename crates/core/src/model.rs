@@ -145,6 +145,9 @@ pub enum Reason {
     AppRunning { processes: Vec<String> },
     /// Same software also seems managed by another package manager.
     DuplicateManager { other: Source },
+    /// The winget manifest of the available version points to the installer
+    /// of the installed version: installing it changes nothing.
+    StaleInstaller { installer_version: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -481,6 +484,9 @@ pub enum FailureKind {
     ElevationRequired,
     ElevationRefused,
     InstallerFailed,
+    /// The installer reported success but the installed version did not
+    /// change (often a broken winget manifest).
+    NoEffect,
     Timeout,
     Unknown,
 }

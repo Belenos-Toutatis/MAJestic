@@ -109,6 +109,24 @@ pub fn list_installed() -> anyhow::Result<Vec<WingetRow>> {
     Ok(tables.iter().flat_map(rows_from_table).collect())
 }
 
+/// Installed versions of package `id` as winget sees them right now
+/// (`winget list --id <id> --exact`): one per installation (user, machine),
+/// empty when the package is not installed.
+pub fn installed_versions(id: &str) -> anyhow::Result<Vec<String>> {
+    check_id(id)?;
+    let out = run(&["list", "--id", id, "--exact"], QUERY_TIMEOUT)?;
+    let tables = table::parse_tables(&out.stdout);
+    if tables.is_empty() {
+        ensure_empty_result(&out, "list --id")?;
+    }
+    Ok(tables
+        .iter()
+        .flat_map(rows_from_table)
+        .filter(|r| r.id.eq_ignore_ascii_case(id))
+        .map(|r| r.version)
+        .collect())
+}
+
 /// Ids of pinned packages (`winget pin list`).
 pub fn list_pins() -> anyhow::Result<Vec<String>> {
     let out = run(&["pin", "list"], QUERY_TIMEOUT)?;

@@ -233,6 +233,8 @@ export default {
     interactive: "Retry with the installer",
     interactiveTip: "Runs the installation again with the program’s installer visible, so you can follow its steps.",
     download: "Open the download page",
+    ignoreVersion: "Ignore version {version}",
+    ignoreVersionTip: "Stop offering this version. The next update will be offered as usual.",
     code: "Exit code: {code}",
     logTitle: "Technical details",
     logTip: "Last lines reported by the installer, useful for troubleshooting.",
@@ -460,6 +462,11 @@ export default {
       label: "Also managed by {other}",
       title: "Managed by two package managers",
       text: "This software also seems installed or tracked by {other}. Update it with a single manager to avoid conflicts.",
+    },
+    stale_installer: {
+      label: "Broken winget entry",
+      title: "This update will change nothing",
+      text: "The winget entry for this version actually downloads the installer of version {version}, which is already installed. Installing would finish without error but change nothing, and the update would come back after every scan. This is a mistake in the winget catalog, usually fixed within a few days: ignore this version meanwhile.",
     },
     unknown: {
       label: "Other reason",
@@ -832,6 +839,7 @@ export default {
     reboot_required: { title: "Restart pending", text: "Windows is waiting for a restart to finish a previous installation. Restart the PC and try again." },
     no_network: { title: "No connection", text: "The download failed because there was no internet connection. Check your network and try again." },
     download_failed: { title: "Download refused", text: "The publisher’s server refused or interrupted the download (outdated link, site under maintenance…). Nothing was installed. Try again later, or download the update from the publisher’s website." },
+    no_effect: { title: "No effect", text: "The installer finished without error, but the program is still at the same version. Often the winget catalog entry ships the old installer by mistake. Ignore this version: it won’t be offered again, and the next update will be offered as usual." },
     disk_full: { title: "Disk full", text: "There is not enough disk space left. Free some space (recycle bin, temporary files) and try again." },
     cancelled_by_user: { title: "Cancelled", text: "The installation was cancelled, from the installer or the permission prompt." },
     blocked_by_policy: { title: "Blocked by a policy", text: "A rule from your organization or Windows forbids this installation. Contact the PC’s administrator." },

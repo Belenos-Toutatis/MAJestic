@@ -1,11 +1,19 @@
 //! Developer tool: runs one job in this process and prints its events.
-//! `cargo run -p majestic-core --example job -- <source> <id> [version]`
-//! (`version` → install that version, else upgrade).
+//! `cargo run -p majestic-core --example job -- <source> <id> [version] [--from V] [--to V]`
+//! (`version` → install that version, else upgrade; `--from`/`--to` fill the
+//! versions the UI would send, which enables the post-install version check).
 
 use majestic_core::model::{JobAction, JobRequest, Source};
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    let mut flag = |name: &str| {
+        let i = args.iter().position(|a| a == name)?;
+        let value = args.get(i + 1).cloned();
+        args.drain(i..(i + 2).min(args.len()));
+        value
+    };
+    let (from_version, to_version) = (flag("--from"), flag("--to"));
     let (Some(source), Some(id)) = (args.first(), args.get(1)) else {
         eprintln!("usage: job <winget|msstore|chocolatey|scoop> <id> [version]");
         std::process::exit(2);
@@ -30,8 +38,8 @@ fn main() {
         id: id.clone(),
         name: id.clone(),
         action,
-        from_version: None,
-        to_version: None,
+        from_version,
+        to_version,
         scope: None,
         include_unknown: false,
         include_pinned: false,

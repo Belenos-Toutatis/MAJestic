@@ -65,6 +65,27 @@ pub fn pick_installer(installers: &[InstallerInfo], scope: Option<crate::model::
     pick_for_arch(installers, scope, std::env::consts::ARCH)
 }
 
+/// A broken manifest: the installer announced for `available` names the
+/// `installed` version in its URL and not `available` (it happened with
+/// Microsoft.VisualStudioCode 1.142.0, which shipped the 1.141.2 setup).
+/// Installing it changes nothing, so the update comes back after every run.
+/// Returns the version the installer really carries.
+pub fn stale_installer(url: &str, installed: &str, available: &str) -> Option<String> {
+    use crate::version;
+    use std::cmp::Ordering;
+
+    if !version::is_newer(available, installed) {
+        return None;
+    }
+    // The announced version anywhere in the URL (query included) clears it;
+    // the installed one must be in the path to count.
+    if version::versions_in_text(url).iter().any(|t| version::compare(t, available) == Ordering::Equal) {
+        return None;
+    }
+    let path = url.split(['?', '#']).next().unwrap_or(url);
+    version::versions_in_text(path).into_iter().find(|t| version::compare(t, installed) == Ordering::Equal)
+}
+
 /// Fetches (and caches under `cache_dir/manifests/`) the default-locale
 /// manifest of `id` at `version`:
 /// `manifests/<first letter>/<id segments as folders>/<version>/<id>.yaml`
@@ -416,6 +437,21 @@ fn truncate_chars(text: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stale_installer_detection() {
+        let vscode = "https://vscode.download.prss.microsoft.com/dbazure/download/stable/\
+                      16507d91be0dc1ce4f94c04d4d0430210b8685d9/VSCodeUserSetup-x64-1.141.2.exe";
+        assert_eq!(stale_installer(vscode, "1.141.2", "1.142.0").as_deref(), Some("1.141.2"));
+        // Right installer, or a URL without the installed version: fine.
+        assert_eq!(stale_installer(vscode, "1.141.2", "1.141.2"), None);
+        assert_eq!(stale_installer(vscode, "1.140.0", "1.141.2"), None);
+        assert_eq!(stale_installer("https://example.com/app-1.0.exe?v=1.1", "1.0", "1.1"), None);
+        assert_eq!(stale_installer("https://example.com/v1.0/app-1.1.exe", "1.0", "1.1"), None);
+        assert_eq!(stale_installer("https://example.com/download/latest", "1.0", "1.1"), None);
+        // 1.0 == 1.0.0 for winget.
+        assert_eq!(stale_installer("https://example.com/app-1.0.0.msi", "1.0", "1.2").as_deref(), Some("1.0.0"));
+    }
 
     fn inst(arch: Option<&str>, scope: Option<&str>, url: &str) -> InstallerInfo {
         InstallerInfo {

@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use crate::exec;
+use crate::{exec, version, winget};
 use crate::model::{FailureKind, JobAction, JobEvent, JobRequest, JobState, Source};
 use crate::pkgmgr;
 use crate::winget::codes::{self, Outcome};
@@ -143,10 +143,76 @@ pub fn run_job(job: &JobRequest, emit: &mut dyn FnMut(JobEvent)) -> JobState {
     let outcome = codes::classify(job.source, code);
     log::info!("job {}: exit code {code:#x} → {outcome:?}", job.key);
     match outcome {
-        Outcome::Success { reboot_required } => JobState::Succeeded { reboot_required },
+        Outcome::Success { reboot_required } => {
+            // After a reboot the version may well change: no check then.
+            match if reboot_required { None } else { unchanged_version(job) } {
+                Some(still) => {
+                    log::warn!("job {}: the installer succeeded but the installed version is still {still}", job.key);
+                    JobState::Failed {
+                        code: Some(code),
+                        kind: FailureKind::NoEffect,
+                        log_excerpt: format!("The installer finished without error, but Windows still reports version {still}."),
+                    }
+                }
+                None => JobState::Succeeded { reboot_required },
+            }
+        }
         Outcome::Failure(kind) => {
             let start = lines.len().saturating_sub(LOG_EXCERPT_LINES);
             JobState::Failed { code: Some(code), kind, log_excerpt: lines[start..].join("\n") }
         }
+    }
+}
+
+/// Waits before each check of [`unchanged_version`]: some installers hand the
+/// work to a background process and return before the version is updated.
+const VERIFY_WAITS: [Duration; 3] = [Duration::ZERO, Duration::from_secs(5), Duration::from_secs(15)];
+
+/// After a successful winget upgrade or version change: the version still
+/// installed when the job changed nothing (see `FailureKind::NoEffect`).
+/// `None` when the version changed or cannot be checked.
+fn unchanged_version(job: &JobRequest) -> Option<String> {
+    if job.source != Source::Winget {
+        return None;
+    }
+    let target = match &job.action {
+        JobAction::Upgrade => job.to_version.as_deref()?,
+        JobAction::InstallVersion { version } => version.as_str(),
+        _ => return None,
+    };
+    let from = job.from_version.as_deref().filter(|v| !version::is_unknown(v))?;
+    if version::compare(target, from) == std::cmp::Ordering::Equal {
+        return None;
+    }
+    for wait in VERIFY_WAITS {
+        std::thread::sleep(wait);
+        let installed = winget::installed_versions(&job.id)
+            .map_err(|e| log::debug!("job {}: cannot check the installed version: {e:#}", job.key))
+            .ok()?;
+        if !all_still(&installed, from) {
+            return None;
+        }
+    }
+    Some(from.to_string())
+}
+
+/// Every installation of the package still reports `from`.
+fn all_still(installed: &[String], from: &str) -> bool {
+    !installed.is_empty()
+        && installed.iter().all(|v| version::compare(&version::strip_approx(v).0, from) == std::cmp::Ordering::Equal)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unchanged_when_every_installation_kept_the_old_version() {
+        let v = |list: &[&str]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(all_still(&v(&["1.141.2"]), "1.141.2"));
+        assert!(all_still(&v(&["1.141.2.0"]), "1.141.2"));
+        assert!(!all_still(&v(&["1.142.0"]), "1.141.2"));
+        assert!(!all_still(&v(&["1.141.2", "1.142.0"]), "1.141.2"));
+        assert!(!all_still(&[], "1.141.2"));
     }
 }
