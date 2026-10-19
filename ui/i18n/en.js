@@ -928,7 +928,7 @@ export default {
     scanOnStartTip: "When off, scanning starts with the “Check for updates” button.",
     onlineIntel: "Use online sources",
     onlineIntelDesc: "Exploited-vulnerabilities catalog, release notes and public catalogs.",
-    onlineIntelInfo: "MAJestic downloads public lists (CISA, winget manifests, catalogs). It sends no information about your software.",
+    onlineIntelInfo: "MAJestic downloads public lists (CISA, winget manifests, catalogs). It never sends your software list: each request is about a single program.",
     onlineIntelTip: "When off, “Critical” priorities and release notes are no longer available.",
     lookupUnmanaged: "Look up versions of unmanaged software",
     lookupUnmanagedDesc: "Online lookup in the background, after the scan.",

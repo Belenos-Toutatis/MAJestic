@@ -928,7 +928,7 @@ export default {
     scanOnStartTip: "Si désactivé, l’analyse se lance avec le bouton « Rechercher les mises à jour ».",
     onlineIntel: "Utiliser les sources en ligne",
     onlineIntelDesc: "Catalogue des failles exploitées, notes de version et catalogues publics.",
-    onlineIntelInfo: "MAJestic télécharge des listes publiques (CISA, manifestes winget, catalogues). Il n’envoie aucune information sur vos logiciels.",
+    onlineIntelInfo: "MAJestic télécharge des listes publiques (CISA, manifestes winget, catalogues). Il n’envoie jamais la liste de vos logiciels : chaque demande ne porte que sur un seul logiciel.",
     onlineIntelTip: "Désactivé, les priorités « Critique » et les notes de version ne sont plus disponibles.",
     lookupUnmanaged: "Chercher les versions des logiciels non gérés",
     lookupUnmanagedDesc: "Recherche en ligne, en arrière-plan, après l’analyse.",

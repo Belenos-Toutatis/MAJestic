@@ -8,12 +8,14 @@ on:
 
 permissions:
   contents: write
+  # Lets SignPath read the job details and download the unsigned artifact.
+  actions: read
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -25,22 +27,64 @@ jobs:
       - name: Build portable executable
         run: cargo build --release -p majestic --locked
 
+      # Code signing by SignPath Foundation (see "Code signing policy" in the
+      # README). Dormant until the repository variable SIGNPATH_ORGANIZATION_ID
+      # exists; only release tags are signed, and each request waits for a
+      # manual approval in SignPath.
+      - name: Check release version
+        id: version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $number = $env:GITHUB_REF_NAME.TrimStart('v')
+          $app = (Get-Content app/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ($number -ne $app) { throw "Tag $env:GITHUB_REF_NAME does not match app version $app" }
+          "number=$number" >> $env:GITHUB_OUTPUT
+
+      - name: Upload unsigned executable
+        id: upload-unsigned
+        if: startsWith(github.ref, 'refs/tags/v') && vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          path: target/release/MAJestic.exe
+          archive: false
+
+      - name: Sign with SignPath
+        if: steps.upload-unsigned.outcome == 'success'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'MAJestic' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          parameters: |
+            version: "${{ steps.version.outputs.number }}"
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+          skip-decompress: true
+
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item target/release/MAJestic.exe dist/MAJestic.exe
+          $exe = if (Test-Path signed/MAJestic.exe) { "signed/MAJestic.exe" } else { "target/release/MAJestic.exe" }
+          Copy-Item $exe dist/MAJestic.exe
+          $sig = Get-AuthenticodeSignature dist/MAJestic.exe
+          Write-Host "Signature: $($sig.Status) $($sig.SignerCertificate.Subject)"
           $hash = (Get-FileHash dist/MAJestic.exe -Algorithm SHA256).Hash.ToLower()
           "$hash  MAJestic.exe" | Out-File -Encoding ascii dist/MAJestic.exe.sha256
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: MAJestic
           path: dist/*
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
+          body_path: .github/release-notes.md
           generate_release_notes: true

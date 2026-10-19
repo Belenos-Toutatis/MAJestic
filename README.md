@@ -72,25 +72,80 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
 ### Utilisation
 
 1. Téléchargez `MAJestic.exe` depuis les [Releases](https://github.com/Belenos-Toutatis/MAJestic/releases/latest).
-2. Lancez-le. L'analyse démarre toute seule (quelques secondes).
+2. Lancez-le (voir [Premier lancement](#premier-lancement) si Windows affiche un
+   écran bleu). L'analyse démarre toute seule (quelques secondes).
 3. Vérifiez la sélection proposée, puis cliquez sur **Mettre à jour**.
-
-> Windows SmartScreen peut afficher « Windows a protégé votre ordinateur » car
-> l'exécutable n'est pas signé : cliquez sur *Informations complémentaires* puis
-> *Exécuter quand même*. Vous pouvez vérifier le fichier avec l'empreinte SHA-256
-> publiée à côté.
 
 **Prérequis** : Windows 10 ou 11 avec winget (« Programme d'installation
 d'application », présent par défaut sur Windows 11) et WebView2 (présent par défaut).
 
+### Premier lancement
+
+Au premier lancement, Windows peut afficher un écran bleu **« Windows a protégé
+votre ordinateur »**. C'est normal pour un programme récent : MAJestic n'est pas
+encore signé numériquement et peu de personnes l'ont lancé jusqu'ici, alors
+Windows ne le connaît pas. Cela ne veut pas dire qu'il est dangereux.
+
+Pour le lancer :
+
+1. cliquez sur **Informations complémentaires** ;
+2. vérifiez que l'application s'appelle bien `MAJestic.exe`, puis cliquez sur
+   **Exécuter quand même**.
+
+Pour ne plus voir cet écran avec ce fichier : clic droit sur `MAJestic.exe` →
+**Propriétés** → cochez **Débloquer** → **OK**. Pour la même raison, la fenêtre
+d'autorisation administrateur indique « Éditeur : inconnu ».
+
+**Vérifier que le fichier est authentique** (facultatif). L'exécutable est
+compilé par [GitHub Actions](https://github.com/Belenos-Toutatis/MAJestic/actions)
+directement à partir du code de ce dépôt, et chaque version publie son empreinte
+dans `MAJestic.exe.sha256`. Dans PowerShell, depuis le dossier du fichier :
+
+```powershell
+(Get-FileHash .\MAJestic.exe -Algorithm SHA256).Hash
+```
+
+Le résultat doit être identique (aux majuscules près) au contenu du fichier `.sha256`.
+
+**Contrôle intelligent des applications** : si cette protection de Windows 11 est
+activée sur votre PC, elle bloque les programmes non signés sans proposer de les
+exécuter.
+
+**Bientôt signé** : une signature de code gratuite a été demandée à SignPath
+Foundation (voir [Code signing policy](#code-signing-policy)). Une fois signé,
+MAJestic affichera un éditeur vérifié et l'avertissement devrait disparaître
+progressivement.
+
+### Désinstaller
+
+MAJestic ne s'installe pas. Pour l'enlever complètement :
+
+1. si vous avez activé la **vérification planifiée**, désactivez-la dans les
+   Paramètres : cela supprime la tâche Windows et l'inscription des notifications ;
+2. supprimez `MAJestic.exe` et le dossier `%LOCALAPPDATA%\MAJestic` (réglages,
+   historique, journaux).
+
 ### Confidentialité
 
-MAJestic télécharge des catalogues publics (failles exploitées de la CISA,
-manifestes winget, catalogue Chocolatey, versions GitHub). **La liste de vos
-logiciels n'est jamais envoyée nulle part** : chaque requête ne concerne qu'un
-seul logiciel. Les sources en ligne peuvent être désactivées dans les paramètres.
-Réglages, historique et journaux restent sur votre PC, dans
-`%LOCALAPPDATA%\MAJestic`.
+MAJestic n'a ni compte, ni publicité, ni mesure d'audience. Réglages, historique
+et journaux restent sur votre PC, dans `%LOCALAPPDATA%\MAJestic`.
+
+Pour vous conseiller, il consulte des sources publiques :
+
+| Service | Pourquoi | Ce que contient la requête |
+|---|---|---|
+| `www.cisa.gov` | Catalogue des failles activement exploitées (KEV) | Rien sur vos logiciels : le catalogue entier est téléchargé |
+| `raw.githubusercontent.com`, `api.github.com` | Manifestes winget (notes de version, installateur) ; dernières versions publiées sur GitHub | L'identifiant d'**un seul** logiciel |
+| `community.chocolatey.org` | Catalogue Chocolatey, pour les logiciels qu'aucun gestionnaire ne suit | Le nom d'**un seul** logiciel |
+| Serveur de l'éditeur | Taille de l'installateur, pour estimer le temps restant (requête `HEAD`, sans téléchargement) | L'adresse officielle de l'installateur, lue dans le manifeste winget |
+
+**La liste de vos logiciels n'est jamais envoyée.** Chaque requête ne porte que
+sur un logiciel et ne contient aucun identifiant personnel ; comme toute
+connexion, elle laisse voir votre adresse IP au service contacté. Les options
+« Utiliser les sources en ligne » et « Chercher les versions des logiciels non
+gérés » des Paramètres désactivent ces requêtes. Les mises à jour elles-mêmes
+sont téléchargées par winget, le Microsoft Store, Chocolatey ou Scoop, depuis
+leurs sources habituelles, et seulement quand vous les lancez.
 
 ## 🇬🇧 English
 
@@ -115,6 +170,86 @@ Réglages, historique et journaux restent sur votre PC, dans
 
 Download `MAJestic.exe` from the [Releases](https://github.com/Belenos-Toutatis/MAJestic/releases/latest)
 and run it.
+
+### First launch
+
+Windows may show a blue **“Windows protected your PC”** screen. This is normal for
+a new program: MAJestic is not code-signed yet and few people have run it so far,
+so Windows does not know it. It does not mean the file is harmful.
+
+1. Click **More info**.
+2. Check that the app is `MAJestic.exe`, then click **Run anyway**.
+
+To stop seeing this screen for that file: right-click `MAJestic.exe` →
+**Properties** → tick **Unblock** → **OK**. For the same reason, the UAC prompt
+shows “Publisher: Unknown”.
+
+**Check the file** (optional). The executable is built by
+[GitHub Actions](https://github.com/Belenos-Toutatis/MAJestic/actions) from this
+repository's source code, and each release publishes its hash in
+`MAJestic.exe.sha256`. In PowerShell, in the file's folder:
+
+```powershell
+(Get-FileHash .\MAJestic.exe -Algorithm SHA256).Hash
+```
+
+The output must match the content of the `.sha256` file (case aside).
+
+**Smart App Control**: when this Windows 11 protection is on, it blocks unsigned
+programs without offering to run them.
+
+**Signing is coming**: free code signing has been requested from SignPath
+Foundation (see [Code signing policy](#code-signing-policy)). Once signed,
+MAJestic will show a verified publisher and the warning should fade out over time.
+
+### Uninstall
+
+MAJestic installs nothing. To remove it completely:
+
+1. if you turned on the **scheduled check**, turn it off in the Settings: this
+   deletes the Windows scheduled task and the notification registration;
+2. delete `MAJestic.exe` and the `%LOCALAPPDATA%\MAJestic` folder (settings,
+   history, logs).
+
+### Privacy
+
+MAJestic has no account, no ads and no analytics. Settings, history and logs stay
+on your PC, in `%LOCALAPPDATA%\MAJestic`.
+
+To advise you, it reads public sources:
+
+| Service | Why | What the request contains |
+|---|---|---|
+| `www.cisa.gov` | Catalog of actively exploited vulnerabilities (KEV) | Nothing about your software: the whole catalog is downloaded |
+| `raw.githubusercontent.com`, `api.github.com` | winget manifests (release notes, installer); latest releases published on GitHub | The identifier of **one** program |
+| `community.chocolatey.org` | Chocolatey catalog, for programs no package manager tracks | The name of **one** program |
+| Publisher's server | Installer size, to estimate the time remaining (`HEAD` request, nothing is downloaded) | The official installer address, read from the winget manifest |
+
+**Your software list is never sent.** Each request is about a single program and
+carries no personal identifier; like any connection, it reveals your IP address to
+the service contacted. The “Use online sources” and “Look up versions of unmanaged
+software” settings turn these requests off. The updates themselves are downloaded
+by winget, the Microsoft Store, Chocolatey or Scoop from their usual sources, and
+only when you start them.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io),
+certificate by [SignPath Foundation](https://signpath.org).
+*Application in progress: until it is accepted, releases are not signed.*
+
+- **What is signed**: only `MAJestic.exe`, built by the
+  [GitHub Actions workflow](.github/workflows/build.yml) of this repository on
+  GitHub-hosted runners, from the tagged source code. Every signing request is
+  approved manually.
+- **Team roles**
+  - Committers and reviewers: [Belenos-Toutatis](https://github.com/Belenos-Toutatis)
+  - Approvers: [Belenos-Toutatis](https://github.com/Belenos-Toutatis)
+- **Privacy**: MAJestic only contacts the systems listed in [Privacy](#privacy),
+  and these requests can be turned off in the settings.
+- **System changes**: MAJestic installs updates, closes programs or creates its
+  scheduled task only after you confirm it in the interface; see
+  [Uninstall](#uninstall) to remove everything.
 
 ## Développement / Development
 

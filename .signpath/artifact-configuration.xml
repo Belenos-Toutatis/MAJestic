@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration for MAJestic (copy of the configuration used
+  in SignPath). The build uploads MAJestic.exe unarchived, so the root element
+  is the PE file itself. The version parameter comes from the release tag.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <pe-file product-name="MAJestic" product-version="${version}">
+    <authenticode-sign />
+  </pe-file>
+</artifact-configuration>

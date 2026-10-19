@@ -26,6 +26,8 @@
   },
   "bundle": {
     "active": false,
+    "publisher": "Belenos Toutatis",
+    "copyright": "Copyright (c) 2026 Belenos Toutatis. MIT License.",
     "icon": ["icons/icon.ico", "icons/128x128.png", "icons/32x32.png"]
   }
 }
