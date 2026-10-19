@@ -91,6 +91,7 @@ export function mountHistory(container) {
     if (e.code !== null && e.code !== undefined && result === 'failed') resultTip += ` ${t('summary.code', { code: e.code })}`;
     const dl = Number(e.downloadSecs) || 0;
     const inst = Number(e.installSecs) || 0;
+    const total = Math.max(Number(e.durationSecs) || 0, dl + inst);
     const canRollback = result === 'succeeded' && e.fromVersion && ['upgrade', 'install_version', 'force_reinstall'].includes(action)
       && ['winget', 'ms_store', 'chocolatey'].includes(normSource(e.source)) && e.fromVersion !== e.toVersion;
     return h('tr', null,
@@ -107,8 +108,8 @@ export function mountHistory(container) {
         h('div', { class: 'row-flex wrap' },
           focusable(badge({ text: t(`history.result.${result}`), tone: RESULT_TONES[result] || 'uncertain', icon: result === 'succeeded' ? 'success' : result === 'failed' ? 'error' : 'minus', tip: [t(`history.result.${result}`), resultTip] })),
           e.rebootRequired ? focusable(badge({ text: t('summary.rebootBadge'), tone: 'gold', icon: 'restart', tip: [t('summary.rebootTitle'), t('summary.rebootBadgeTip')] })) : null)),
-      h('td', { class: 'num num-col', tip: dl || inst ? [t('history.durationTitle'), t('history.durationDetail', { download: fmt.duration(dl), install: fmt.duration(inst) })] : undefined, tabindex: dl || inst ? 0 : undefined },
-        dl || inst ? fmt.duration(dl + inst) : '—'),
+      h('td', { class: 'num num-col', tip: total ? [t('history.durationTitle'), t('history.durationDetail', { download: fmt.duration(dl), install: fmt.duration(inst) })] : undefined, tabindex: total ? 0 : undefined },
+        total ? fmt.duration(total) : '—'),
       h('td', { class: 'act-col' },
         canRollback ? button({
           label: t('history.rollback'), icon: 'undo', size: 'small', variant: 'subtle', ariaLabel: t('history.rollbackAria', { name: e.name || e.id, version: e.fromVersion }),

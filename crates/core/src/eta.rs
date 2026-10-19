@@ -136,6 +136,7 @@ struct Current {
 /// Measured timings of a finished job, for the history.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Timings {
+    pub total_secs: Option<f64>,
     pub download_secs: Option<f64>,
     pub install_secs: Option<f64>,
     pub download_bytes: Option<u64>,
@@ -267,7 +268,12 @@ impl BatchTracker {
                 }
             }
         }
-        Timings { download_secs, install_secs, download_bytes: bytes }
+        Timings {
+            total_secs: Some(now.duration_since(cur.started).as_secs_f64()),
+            download_secs,
+            install_secs,
+            download_bytes: bytes,
+        }
     }
 
     /// Remaining time of a queued job, using what we learned so far: the
@@ -409,6 +415,7 @@ mod tests {
             failure: None,
             code: Some(0),
             reboot_required: false,
+            duration_secs: Some(dl + install),
             download_secs: Some(dl),
             install_secs: Some(install),
             download_bytes: Some(bytes),

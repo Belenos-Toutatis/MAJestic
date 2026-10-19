@@ -591,6 +591,9 @@ pub struct HistoryEntry {
     pub failure: Option<FailureKind>,
     pub code: Option<i64>,
     pub reboot_required: bool,
+    /// Whole job, from start to end (closing apps excluded).
+    #[serde(default)]
+    pub duration_secs: Option<f64>,
     /// Measured durations, used to estimate future runs.
     #[serde(default)]
     pub download_secs: Option<f64>,

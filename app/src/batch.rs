@@ -231,6 +231,7 @@ fn record(job: &JobRequest, state: &JobState, t: majestic_core::eta::Timings) {
         failure,
         code,
         reboot_required,
+        duration_secs: t.total_secs,
         download_secs: t.download_secs,
         install_secs: t.install_secs,
         download_bytes: t.download_bytes.or(job.download_size),
