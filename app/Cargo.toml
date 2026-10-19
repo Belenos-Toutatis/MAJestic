@@ -1,0 +1,44 @@
+[package]
+name = "majestic"
+description = "MAJestic: all your software updates, majestically."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "MAJestic"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+majestic-core = { path = "../crates/core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+log.workspace = true
+chrono.workspace = true
+
+[dependencies.windows]
+version = "0.62"
+features = [
+    "Data_Xml_Dom",
+    "Foundation",
+    "UI_Notifications",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+]
+
+[features]
+default = ["custom-protocol"]
+# Embeds the UI in the executable (production build).
+custom-protocol = ["tauri/custom-protocol"]

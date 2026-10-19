@@ -6,6 +6,7 @@
 //! * [`scan`]: puts everything together into a [`model::ScanResult`].
 //! * [`jobs`]: runs installations and reports [`model::JobEvent`]s.
 
+pub mod eta;
 pub mod exec;
 pub mod history;
 pub mod intel;

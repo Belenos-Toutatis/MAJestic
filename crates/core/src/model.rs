@@ -272,6 +272,10 @@ pub struct UpdateItem {
     pub running: Vec<RunningProcess>,
     /// The user chose to ignore this package (or this exact available version).
     pub ignored: bool,
+    /// Folders of the program's executables (not sent to the UI): used to
+    /// find its running processes right before updating it.
+    #[serde(skip)]
+    pub install_dirs: Vec<std::path::PathBuf>,
 }
 
 impl UpdateItem {
@@ -300,6 +304,7 @@ impl UpdateItem {
             alternatives: Vec::new(),
             running: Vec::new(),
             ignored: false,
+            install_dirs: Vec::new(),
         }
     }
 }
