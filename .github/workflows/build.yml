@@ -74,7 +74,8 @@ jobs:
           $sig = Get-AuthenticodeSignature dist/MAJestic.exe
           Write-Host "Signature: $($sig.Status) $($sig.SignerCertificate.Subject)"
           $hash = (Get-FileHash dist/MAJestic.exe -Algorithm SHA256).Hash.ToLower()
-          "$hash  MAJestic.exe" | Out-File -Encoding ascii dist/MAJestic.exe.sha256
+          # LF line ending, so that `sha256sum -c` works too.
+          [IO.File]::WriteAllText("$PWD/dist/MAJestic.exe.sha256", "$hash  MAJestic.exe`n")
 
       - uses: actions/upload-artifact@v7
         with:
