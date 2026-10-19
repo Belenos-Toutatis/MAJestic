@@ -43,4 +43,19 @@ fn main() {
     }
     println!("== unmanaged by category: {cats:?}");
     println!("== scan took {:.1}s", started.elapsed().as_secs_f32());
+
+    if std::env::args().any(|a| a == "--lookup") {
+        let quiet = |_: ScanProgress| {};
+        let found = |item: majestic_core::model::UpdateItem| {
+            println!(
+                "manual: {} {} -> {} {:?}",
+                item.name,
+                item.installed_version.unwrap_or_default(),
+                item.available_version.unwrap_or_default(),
+                item.alternatives.first()
+            );
+        };
+        majestic_core::scan::lookup_unmanaged(&result.items, &quiet, &found);
+        println!("== lookup done at {:.1}s", started.elapsed().as_secs_f32());
+    }
 }
