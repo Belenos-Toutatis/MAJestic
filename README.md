@@ -60,6 +60,15 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
 - **Aucune aide nécessaire** : chaque élément de l'interface s'explique au
   survol. Thème clair, sombre ou automatique ; français et anglais.
 
+### Captures d'écran
+
+| | |
+|---|---|
+| ![Détail d'une mise à jour critique](docs/screenshots/details-light.png) | ![Bulles d'aide au survol](docs/screenshots/tooltip-light.png) |
+| *Le détail explique pourquoi une mise à jour compte.* | *Chaque élément s'explique au survol.* |
+| ![Logiciels hors gestionnaire de paquets](docs/screenshots/others-light.png) | ![Bilan des mises à jour](docs/screenshots/summary-dark.png) |
+| *Les logiciels qu'aucun outil ne gère sont rangés et expliqués.* | *Le bilan propose une solution pour chaque échec.* |
+
 ### Utilisation
 
 1. Téléchargez `MAJestic.exe` depuis les [Releases](https://github.com/Belenos-Toutatis/MAJestic/releases/latest).
