@@ -419,12 +419,17 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
         }
     }
 
-    // Programs nobody manages.
+    // Programs nobody manages. The same program can be registered twice
+    // (machine and user entries): list it once.
+    let mut seen_unmanaged: HashSet<(String, Option<String>)> = HashSet::new();
     for p in &programs {
         if p.system_component || p.is_update {
             continue;
         }
         if has_winget && !installed.is_empty() && !unmatched_arp.contains(&p.winget_arp_id().to_lowercase()) {
+            continue;
+        }
+        if !seen_unmanaged.insert((norm(&p.display_name), p.display_version.clone())) {
             continue;
         }
         let key = format!("arp:{}", p.reg_id());

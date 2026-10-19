@@ -3,6 +3,7 @@
 import { h, clear } from '../dom.js';
 import { t } from '../i18n.js';
 import { invoke, errorText } from '../api.js';
+import { searchName } from '../model.js';
 import { openDialog } from './dialog.js';
 import { badge, spinner, infoDot, button } from './widgets.js';
 
@@ -76,7 +77,7 @@ export function chooseVersion({ id, source, name, installed, latest, preselect, 
  * searchWinget(item) → resolves with { id, name, version } chosen, or null.
  */
 export function searchWinget(item) {
-  let query = item.name || '';
+  let query = searchName(item.name);
   const resultsHost = h('div', { class: 'winget-results' });
   const input = h('input', { class: 'input grow', value: query, 'aria-label': t('winget.queryLabel'), spellcheck: false });
   let closeApi = null;

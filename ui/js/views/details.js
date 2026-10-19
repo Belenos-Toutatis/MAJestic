@@ -7,7 +7,7 @@ import { t, fmt } from '../i18n.js';
 import { state, itemByKey, runActive } from '../state.js';
 import {
   kindOf, priorityOf, describeReason, reasonsOf, alternativesOf, runningOf, installedVersionInfo,
-  availableVersionOf, sourceInfo, buildJob, needsElevation, categoryInfo, normSource, isSelectable,
+  availableVersionOf, sourceInfo, buildJob, needsElevation, categoryInfo, normSource, isSelectable, originName,
 } from '../model.js';
 import { startJobs, ignoreItem, unignore, openUrl, openStoreUpdates, webSearchUrl } from '../actions.js';
 import { avatar } from '../components/avatar.js';
@@ -240,7 +240,7 @@ function actionsFor(item, kind) {
       case 'latest_elsewhere':
         if (alt.url) seenUrls.add(alt.url);
         out.push(actionCard({
-          ic: 'globe', tone: 'manual', title: t('alternatives.latestElsewhere', { version: alt.version || '?', origin: alt.origin || '?' }),
+          ic: 'globe', tone: 'manual', title: t('alternatives.latestElsewhere', { version: alt.version || '?', origin: originName(alt.origin) }),
           text: t('alternatives.latestElsewhereText'),
           control: alt.url ? button({ label: t('alternatives.open'), icon: 'external', size: 'small', tip: [t('alternatives.open'), alt.url], onClick: () => openUrl(alt.url) }) : null,
         }));

@@ -18,6 +18,21 @@ export function normSource(source) {
   return SOURCES.includes(s) ? s : 'unknown';
 }
 
+/** Display name of a catalog where a newer version was found. */
+export function originName(origin) {
+  const names = { github: 'GitHub', chocolatey: 'Chocolatey' };
+  return names[String(origin || '').toLowerCase()] || origin || '?';
+}
+
+/** Program name without versions, architecture or parentheses: a search query. */
+export function searchName(name) {
+  const words = String(name || '')
+    .replace(/\([^)]*\)/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w && !/^v?\d+([._-]\d+)+\w*$/i.test(w) && !/^(x64|x86|arm64|64-?bit|32-?bit)$/i.test(w));
+  return words.join(' ') || String(name || '').trim();
+}
+
 export function sourceInfo(source) {
   const key = normSource(source);
   return {
