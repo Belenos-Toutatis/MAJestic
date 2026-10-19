@@ -10,7 +10,7 @@ use crate::notify;
 pub fn run() -> i32 {
     let settings = Settings::load();
     let Some(schedule) = settings.schedule.clone() else {
-        log::info!("check: schedule disabled, nothing to do");
+        log::info!("check: schedule disabled in {}, nothing to do", majestic_core::paths::settings_file().display());
         return 0;
     };
     let result = majestic_core::scan::scan(&settings, &|_| {});

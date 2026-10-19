@@ -114,10 +114,20 @@ impl Default for Settings {
 impl Settings {
     /// Loads settings; missing or corrupt file gives defaults.
     pub fn load() -> Settings {
-        std::fs::read_to_string(paths::settings_file())
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
+        let path = paths::settings_file();
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(e) => {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    log::warn!("settings: cannot read {}: {e}", path.display());
+                }
+                return Settings::default();
+            }
+        };
+        serde_json::from_str(&text).unwrap_or_else(|e| {
+            log::warn!("settings: invalid {}: {e}", path.display());
+            Settings::default()
+        })
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
