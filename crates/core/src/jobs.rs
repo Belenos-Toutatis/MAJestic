@@ -79,7 +79,7 @@ pub fn run_job(job: &JobRequest, emit: &mut dyn FnMut(JobEvent)) -> JobState {
         Err(e) => {
             let text = format!("{e:#}");
             log::warn!("job {}: {text}", job.key);
-            let kind = if text.to_lowercase().contains("timed out") || text.to_lowercase().contains("timeout") {
+            let kind = if e.downcast_ref::<exec::TimedOut>().is_some() {
                 FailureKind::Timeout
             } else {
                 FailureKind::Unknown
