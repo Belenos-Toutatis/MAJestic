@@ -446,9 +446,8 @@ impl JobRequest {
     /// must NOT run elevated; Chocolatey always needs it; machine-wide or
     /// unknown-scope winget packages get it.
     pub fn needs_elevation(&self) -> bool {
-        match self.action {
-            JobAction::StoreUpdateScan => return true,
-            _ => {}
+        if self.action == JobAction::StoreUpdateScan {
+            return true;
         }
         match self.source {
             Source::Scoop | Source::MsStore | Source::Msix => false,
