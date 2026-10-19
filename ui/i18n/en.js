@@ -831,6 +831,7 @@ export default {
     install_in_progress: { title: "Another installation running", text: "Windows was already installing something else (Windows Update or another installer). Wait a few minutes and try again." },
     reboot_required: { title: "Restart pending", text: "Windows is waiting for a restart to finish a previous installation. Restart the PC and try again." },
     no_network: { title: "No connection", text: "The download failed because there was no internet connection. Check your network and try again." },
+    download_failed: { title: "Download refused", text: "The publisher’s server refused or interrupted the download (outdated link, site under maintenance…). Nothing was installed. Try again later, or download the update from the publisher’s website." },
     disk_full: { title: "Disk full", text: "There is not enough disk space left. Free some space (recycle bin, temporary files) and try again." },
     cancelled_by_user: { title: "Cancelled", text: "The installation was cancelled, from the installer or the permission prompt." },
     blocked_by_policy: { title: "Blocked by a policy", text: "A rule from your organization or Windows forbids this installation. Contact the PC’s administrator." },

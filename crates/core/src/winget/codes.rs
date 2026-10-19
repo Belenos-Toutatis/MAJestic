@@ -59,11 +59,13 @@ fn winget(code: u32) -> Option<Outcome> {
         0x8A15_0101 | 0x8A15_0103 | 0x8A15_0111 => fail(AppRunning),
         // INSTALL_INSTALL_IN_PROGRESS
         0x8A15_0102 => fail(InstallInProgress),
-        // INSTALL_NO_NETWORK, DOWNLOAD_FAILED, DOWNLOAD_SIZE_MISMATCH, SOURCE_OPEN_FAILED,
-        // FAILED_TO_OPEN_ALL_SOURCES, SERVICE_UNAVAILABLE, DISPLAYCATALOG_API_FAILED,
-        // SFSCLIENT_API_FAILED, INSTALLER_ZERO_BYTE_FILE
-        0x8A15_0107 | 0x8A15_0008 | 0x8A15_002E | 0x8A15_0045 | 0x8A15_004B | 0x8A15_006D | 0x8A15_007F
-        | 0x8A15_0081 | 0x8A15_0086 => fail(NoNetwork),
+        // INSTALL_NO_NETWORK, SOURCE_OPEN_FAILED, FAILED_TO_OPEN_ALL_SOURCES, SERVICE_UNAVAILABLE,
+        // DISPLAYCATALOG_API_FAILED, SFSCLIENT_API_FAILED
+        0x8A15_0107 | 0x8A15_0045 | 0x8A15_004B | 0x8A15_006D | 0x8A15_007F | 0x8A15_0081 => fail(NoNetwork),
+        // DOWNLOAD_FAILED, DOWNLOAD_SIZE_MISMATCH, INSTALLER_ZERO_BYTE_FILE
+        0x8A15_0008 | 0x8A15_002E | 0x8A15_0086 => fail(DownloadFailed),
+        // HTTP status of the installer download (FACILITY_HTTP: 0x8019_0193 = 403).
+        c if c & 0xFFFF_0000 == 0x8019_0000 => fail(DownloadFailed),
         // INSTALL_DISK_FULL
         0x8A15_0105 => fail(DiskFull),
         // CTRL_SIGNAL_RECEIVED, APPTERMINATION_RECEIVED, INSTALL_CANCELLED_BY_USER,
@@ -184,7 +186,7 @@ mod tests {
         assert_eq!(failure(Source::Winget, 0x8A15_0102), Some(InstallInProgress));
         assert_eq!(failure(Source::Winget, 0x8A15_010A), Some(RebootRequired));
         assert_eq!(failure(Source::Winget, 0x8A15_0107), Some(NoNetwork));
-        assert_eq!(failure(Source::Winget, 0x8A15_0008), Some(NoNetwork));
+        assert_eq!(failure(Source::Winget, 0x8A15_0008), Some(DownloadFailed));
         assert_eq!(failure(Source::Winget, 0x8A15_0105), Some(DiskFull));
         assert_eq!(failure(Source::Winget, 0x8A15_010C), Some(CancelledByUser));
         assert_eq!(failure(Source::Winget, 0x8A15_010F), Some(BlockedByPolicy));
@@ -226,5 +228,18 @@ mod tests {
         assert_eq!(failure(Source::Chocolatey, 1), Some(InstallerFailed));
         assert_eq!(failure(Source::Chocolatey, 0xFFFF_FFFF), Some(InstallerFailed));
         assert_eq!(failure(Source::Scoop, 1), Some(InstallerFailed));
+    }
+}
+
+#[cfg(test)]
+mod http_tests {
+    use super::*;
+
+    #[test]
+    fn http_errors_are_download_failures() {
+        assert_eq!(classify(Source::Winget, 0x8019_0193), Outcome::Failure(FailureKind::DownloadFailed));
+        assert_eq!(classify(Source::Winget, 0x8019_0194), Outcome::Failure(FailureKind::DownloadFailed));
+        assert_eq!(classify(Source::Winget, 0x8A15_0008), Outcome::Failure(FailureKind::DownloadFailed));
+        assert_eq!(classify(Source::Winget, 0x8A15_0107), Outcome::Failure(FailureKind::NoNetwork));
     }
 }

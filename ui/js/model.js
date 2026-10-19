@@ -234,6 +234,7 @@ const FAILURE_ACTIONS = {
   install_in_progress: ['retry'],
   reboot_required: ['retry'],
   no_network: ['retry'],
+  download_failed: ['download', 'retry'],
   disk_full: ['retry'],
   cancelled_by_user: ['retry', 'interactive'],
   blocked_by_policy: ['download'],

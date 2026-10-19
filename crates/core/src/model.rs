@@ -466,6 +466,9 @@ pub enum FailureKind {
     InstallInProgress,
     RebootRequired,
     NoNetwork,
+    /// The publisher's server refused or failed the download (HTTP 403,
+    /// 404, 5xx...), or the file arrived broken.
+    DownloadFailed,
     DiskFull,
     CancelledByUser,
     BlockedByPolicy,

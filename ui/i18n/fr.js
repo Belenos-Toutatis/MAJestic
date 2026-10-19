@@ -831,6 +831,7 @@ export default {
     install_in_progress: { title: "Autre installation en cours", text: "Windows installait déjà autre chose (Windows Update ou un autre installateur). Attendez quelques minutes puis réessayez." },
     reboot_required: { title: "Redémarrage en attente", text: "Windows attend un redémarrage pour finir une installation précédente. Redémarrez le PC puis réessayez." },
     no_network: { title: "Pas de connexion", text: "Le téléchargement a échoué faute de connexion Internet. Vérifiez votre réseau puis réessayez." },
+    download_failed: { title: "Téléchargement refusé", text: "Le serveur de l’éditeur a refusé ou interrompu le téléchargement (lien périmé, site en maintenance…). Rien n’a été installé. Réessayez plus tard, ou téléchargez la mise à jour sur le site de l’éditeur." },
     disk_full: { title: "Disque plein", text: "Il n’y a plus assez d’espace sur le disque. Libérez de la place (corbeille, fichiers temporaires) puis réessayez." },
     cancelled_by_user: { title: "Annulé", text: "L’installation a été annulée, depuis l’installateur ou la fenêtre d’autorisation." },
     blocked_by_policy: { title: "Bloqué par une stratégie", text: "Une règle de votre organisation ou de Windows interdit cette installation. Contactez l’administrateur du PC." },
