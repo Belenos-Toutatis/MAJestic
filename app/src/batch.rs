@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use majestic_core::eta::{BatchTracker, EtaModel};
+use majestic_core::eta::{BatchTracker, EtaModel, Phase};
 use majestic_core::model::*;
 use majestic_core::system::{elevation, procs};
 use majestic_core::{history, jobs};
@@ -23,6 +23,7 @@ use crate::commands::AppState;
 use crate::worker::{StartError, Worker};
 
 const CLOSE_GRACE: Duration = Duration::from_secs(10);
+const TICK: Duration = Duration::from_millis(500);
 
 pub struct BatchControl {
     cancel: Arc<AtomicBool>,
@@ -75,6 +76,8 @@ pub fn start(app: AppHandle, jobs: Vec<JobRequest>, close_apps: Vec<String>, all
 
 struct Shared {
     tracker: BatchTracker,
+    /// Job in progress, to watch its download folder.
+    job: Option<JobRequest>,
     /// Last event of the job in progress (re-emitted by the ticker).
     last_event: Option<JobEvent>,
     done: usize,
@@ -240,6 +243,7 @@ fn run(app: &AppHandle, jobs: Vec<JobRequest>, close_apps: Vec<String>, allow_el
     let estimates = jobs.iter().map(|j| model.estimate(j)).collect();
     let shared = Arc::new(Mutex::new(Shared {
         tracker: BatchTracker::new(estimates, model.bandwidth),
+        job: None,
         last_event: None,
         done: 0,
         succeeded: 0,
@@ -263,14 +267,27 @@ fn run(app: &AppHandle, jobs: Vec<JobRequest>, close_apps: Vec<String>, allow_el
             .unwrap_or_default()
     };
 
-    // Ticker: keeps the time left moving between output lines.
+    // Ticker: measures the download (winget prints no progress when its
+    // output is redirected) and keeps the time left moving between lines.
     let stop = Arc::new(AtomicBool::new(false));
     let ticker = {
         let (app, shared, stop) = (app.clone(), shared.clone(), stop.clone());
         std::thread::spawn(move || {
             while !stop.load(Ordering::SeqCst) {
-                std::thread::sleep(Duration::from_secs(1));
+                std::thread::sleep(TICK);
+                let job = shared.lock().ok().and_then(|s| s.job.clone());
+                let downloading = shared.lock().ok().and_then(|s| s.tracker.phase()) == Some(Phase::Downloading);
+                let bytes = job.as_ref().filter(|_| downloading).and_then(jobs::downloaded_bytes);
                 if let Ok(mut s) = shared.lock() {
+                    if let (Some(bytes), Some(job)) = (bytes, job.as_ref()) {
+                        let total = job.download_size.filter(|t| *t >= bytes);
+                        let speed = s.tracker.download_progress(Some(bytes), total);
+                        if let Some(ev) = s.last_event.as_mut() {
+                            ev.downloaded = Some(bytes);
+                            ev.total_bytes = total;
+                            ev.speed = speed;
+                        }
+                    }
                     if let Some(mut ev) = s.last_event.clone() {
                         if let Some((fraction, left)) = s.tracker.current_job() {
                             ev.progress = Some(fraction);
@@ -313,6 +330,7 @@ fn run(app: &AppHandle, jobs: Vec<JobRequest>, close_apps: Vec<String>, allow_el
 
         if let Ok(mut s) = shared.lock() {
             s.current = Some(job.key.clone());
+            s.job = Some(job.clone());
             s.tracker.job_started(&job.key);
             s.last_event = None;
         }

@@ -5,10 +5,11 @@
 //! `progress`/`speed`/`eta_secs` with its [`crate::eta::BatchTracker`], since
 //! jobs may run in the elevated worker process.
 
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::exec;
-use crate::model::{FailureKind, JobEvent, JobRequest, JobState};
+use crate::model::{FailureKind, JobAction, JobEvent, JobRequest, JobState, Source};
 use crate::pkgmgr;
 use crate::winget::codes::{self, Outcome};
 
@@ -19,6 +20,57 @@ const LOG_EXCERPT_LINES: usize = 15;
 
 fn looks_like_url(line: &str) -> bool {
     line.contains("http://") || line.contains("https://")
+}
+
+fn dir_size(dir: &Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(dir) else { return 0 };
+    entries
+        .flatten()
+        .map(|e| match e.metadata() {
+            Ok(m) if m.is_dir() => dir_size(&e.path()),
+            Ok(m) => m.len(),
+            Err(_) => 0,
+        })
+        .sum()
+}
+
+/// Bytes downloaded so far for a job, read from the tool's download folder.
+///
+/// winget prints no progress when its output is redirected, but downloads
+/// into `%TEMP%\WinGet\<id>.<version>\`; Chocolatey into
+/// `%TEMP%\chocolatey\<id>\`. The elevated worker runs as the same user, so
+/// the window process can watch these folders for both.
+pub fn downloaded_bytes(job: &JobRequest) -> Option<u64> {
+    let temp = std::env::temp_dir();
+    let dir: PathBuf = match job.source {
+        Source::Winget | Source::Registry => {
+            let base = temp.join("WinGet");
+            let exact = job
+                .to_version
+                .as_ref()
+                .or(match &job.action {
+                    JobAction::InstallVersion { version } => Some(version),
+                    _ => None,
+                })
+                .map(|v| base.join(format!("{}.{v}", job.id)));
+            match exact.filter(|d| d.is_dir()) {
+                Some(d) => d,
+                // Version unknown: the most recent folder of this package.
+                None => {
+                    let prefix = format!("{}.", job.id.to_lowercase());
+                    std::fs::read_dir(&base)
+                        .ok()?
+                        .flatten()
+                        .filter(|e| e.file_name().to_string_lossy().to_lowercase().starts_with(&prefix))
+                        .max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok())?
+                        .path()
+                }
+            }
+        }
+        Source::Chocolatey => temp.join("chocolatey").join(&job.id),
+        _ => return None,
+    };
+    dir.is_dir().then(|| dir_size(&dir)).filter(|s| *s > 0)
 }
 
 /// Runs `job` to completion, emitting progress events. Never panics.
