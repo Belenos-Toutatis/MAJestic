@@ -483,22 +483,24 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
     }
 
     // --- Assessment ---------------------------------------------------------
+    // Every item gets one: up-to-date and unmanaged programs keep informative
+    // reasons (version read from the file, known exploited flaws...).
     let today = today();
     for item in b.items.iter_mut() {
         item.ignored = settings.is_ignored(&item.key, item.available_version.as_deref());
-        if matches!(item.kind, ItemKind::Update | ItemKind::Manual) {
-            let kev = kev_reason(kev.as_ref(), item, &today);
-            let notes = item.release_notes.clone();
-            let extra = std::mem::take(&mut item.assessment.reasons);
-            item.assessment = intel::assess::assess(item, kev, notes.as_deref());
-            for r in extra {
-                if !item.assessment.reasons.contains(&r) {
-                    item.assessment.reasons.push(r);
-                }
+        let kev = kev_reason(kev.as_ref(), item, &today);
+        let notes = item.release_notes.clone();
+        let extra = std::mem::take(&mut item.assessment.reasons);
+        item.assessment = intel::assess::assess(item, kev, notes.as_deref());
+        for r in extra {
+            if !item.assessment.reasons.contains(&r) {
+                item.assessment.reasons.push(r);
             }
-            if item.ignored {
-                item.assessment.preselect = false;
-            }
+        }
+        // winget leaves these out of `upgrade --all` on purpose (the
+        // publisher asked for it): the user decides.
+        if item.ignored || item.explicit_only {
+            item.assessment.preselect = false;
         }
     }
 
