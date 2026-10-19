@@ -389,6 +389,7 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
         item.kind = ItemKind::Update;
         item.scope = Some(Scope::Machine);
         item.pinned = row.pinned;
+        item.alternatives.push(Alternative::InstallVersion);
     }
 
     for row in scoop_rows.unwrap_or_default() {

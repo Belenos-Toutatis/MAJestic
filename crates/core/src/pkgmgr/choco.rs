@@ -45,6 +45,26 @@ pub fn outdated() -> anyhow::Result<Vec<ChocoRow>> {
     Ok(rows)
 }
 
+/// Every version of a package in the configured feeds, newest first
+/// (`choco search <id> --exact --all-versions -r`).
+pub fn list_versions(id: &str) -> anyhow::Result<Vec<String>> {
+    check_id(id)?;
+    let out = exec::run(PROGRAM, &["search", id, "--exact", "--all-versions", "-r"], OUTDATED_TIMEOUT)?;
+    let mut versions: Vec<String> = out
+        .stdout
+        .lines()
+        .filter_map(|line| line.trim().split_once('|'))
+        .filter(|(pkg, v)| pkg.eq_ignore_ascii_case(id) && Version::parse(v).is_some())
+        .map(|(_, v)| v.trim().to_string())
+        .collect();
+    if versions.is_empty() {
+        bail!("no version of {id} found (exit code {}): {}", out.code, out.excerpt(3));
+    }
+    versions.sort_by(|a, b| crate::version::compare(b, a));
+    versions.dedup();
+    Ok(versions)
+}
+
 /// Parses `id|installed|available|pinned` lines, ignoring anything else.
 fn parse_outdated(output: &str) -> Vec<ChocoRow> {
     output

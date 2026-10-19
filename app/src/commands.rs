@@ -157,10 +157,19 @@ pub async fn get_icon(hint: String, state: State<'_, AppState>) -> Result<Option
 pub async fn list_versions(id: String, source: String) -> Result<Vec<String>, String> {
     let source = match source.as_str() {
         "winget" => "winget",
-        "msstore" => "msstore",
+        "msstore" | "ms_store" => "msstore",
+        "chocolatey" => "chocolatey",
         other => return Err(format!("versions are not available for source {other}")),
     };
-    blocking(move || winget::list_versions(&id, Some(source)).map_err(|e| format!("{e:#}"))).await?
+    blocking(move || {
+        let versions = if source == "chocolatey" {
+            pkgmgr::choco::list_versions(&id)
+        } else {
+            winget::list_versions(&id, Some(source))
+        };
+        versions.map_err(|e| format!("{e:#}"))
+    })
+    .await?
 }
 
 #[derive(Serialize)]

@@ -92,7 +92,7 @@ export function mountHistory(container) {
     const dl = Number(e.downloadSecs) || 0;
     const inst = Number(e.installSecs) || 0;
     const canRollback = result === 'succeeded' && e.fromVersion && ['upgrade', 'install_version', 'force_reinstall'].includes(action)
-      && ['winget', 'ms_store'].includes(normSource(e.source)) && e.fromVersion !== e.toVersion;
+      && ['winget', 'ms_store', 'chocolatey'].includes(normSource(e.source)) && e.fromVersion !== e.toVersion;
     return h('tr', null,
       h('td', { class: 'num subtle' }, fmt.time(e.date)),
       h('td', null,

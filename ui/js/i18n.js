@@ -64,7 +64,9 @@ export function t(key, params) {
   if (typeof value === 'object' && value !== null) {
     const count = Number(params?.count ?? 0);
     let form = value.other;
-    if (count === 0 && value.zero !== undefined) form = value.zero;
+    // French plural rules put 0 in "one", whose strings often spell out "1":
+    // zero uses its own form, else "other" ("0 installées").
+    if (count === 0) form = value.zero ?? value.other;
     else {
       const cat = plural.select(count);
       form = value[cat] ?? value.other;
