@@ -6,8 +6,8 @@ members = ["crates/core", "app"]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-authors = ["Emmanuel Wenner"]
-repository = "https://github.com/OWNER/MAJestic"
+authors = ["Belenos Toutatis"]
+repository = "https://github.com/Belenos-Toutatis/MAJestic"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

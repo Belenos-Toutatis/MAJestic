@@ -13,6 +13,7 @@ pub enum Source {
     /// winget, community repository (`winget` source).
     Winget,
     /// winget, Microsoft Store source (`msstore`).
+    #[serde(rename = "msstore")]
     MsStore,
     Chocolatey,
     Scoop,
