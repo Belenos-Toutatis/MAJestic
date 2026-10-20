@@ -54,6 +54,10 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
     expliqués et rangés à part ;
   - téléchargement refusé, application ouverte, redémarrage nécessaire… →
     explication claire et solution proposée.
+- **Windows Update aussi** : affiche les mises à jour de Windows en attente
+  (sécurité, pilotes, antivirus Defender) et signale un redémarrage nécessaire,
+  avec un bouton qui ouvre Windows Update et lance la recherche. C'est Windows qui
+  les installe, comme d'habitude.
 - **Revenir à une version précédente** depuis l'historique (winget et Chocolatey).
 - **Vérification planifiée** (quotidienne, hebdomadaire ou mensuelle) avec une
   notification Windows quand une mise à jour importante est disponible.
@@ -142,12 +146,14 @@ Pour vous conseiller, il consulte des sources publiques :
 | `community.chocolatey.org` | Catalogue Chocolatey, pour les logiciels qu'aucun gestionnaire ne suit | Le nom d'**un seul** logiciel |
 | Serveur de l'éditeur | Taille de l'installateur, pour estimer le temps restant (requête `HEAD`, sans téléchargement) | L'adresse officielle de l'installateur, lue dans le manifeste winget |
 | `api.github.com`, `github.com` | Savoir s'il existe une nouvelle version de MAJestic, et la télécharger si vous le demandez | Rien sur vos logiciels |
+| Service Windows Update (Windows lui-même) | Savoir quelles mises à jour de Windows sont en attente | MAJestic ne contacte rien : c'est le service Windows Update qui interroge Microsoft, comme lors d'une recherche dans les Paramètres |
 
 **La liste de vos logiciels n'est jamais envoyée.** Chaque requête ne porte que
 sur un logiciel et ne contient aucun identifiant personnel ; comme toute
 connexion, elle laisse voir votre adresse IP au service contacté. Les options
-« Utiliser les sources en ligne » et « Chercher les versions des logiciels non
-gérés » des Paramètres désactivent ces requêtes. Les mises à jour elles-mêmes
+« Utiliser les sources en ligne », « Chercher les versions des logiciels non
+gérés » et « Afficher les mises à jour de Windows » des Paramètres désactivent ces
+requêtes. Les mises à jour elles-mêmes
 sont téléchargées par winget, le Microsoft Store, Chocolatey ou Scoop, depuis
 leurs sources habituelles, et seulement quand vous les lancez.
 
@@ -172,6 +178,9 @@ leurs sources habituelles, et seulement quand vous les lancez.
   explains itself with a tooltip.
 - Updates itself in one click when a new version is out (SHA-256 checked before
   anything is replaced; settings and history kept).
+- Shows what Windows Update has waiting (security, drivers, Defender) and pending
+  restarts, with a button that opens Windows Update and starts a search; Windows
+  installs them as usual.
 - Privacy: public catalogs are downloaded; your software list is never sent anywhere.
 
 Download `MAJestic.exe` from the [Releases](https://github.com/Belenos-Toutatis/MAJestic/releases/latest)
@@ -231,11 +240,12 @@ To advise you, it reads public sources:
 | `community.chocolatey.org` | Chocolatey catalog, for programs no package manager tracks | The name of **one** program |
 | Publisher's server | Installer size, to estimate the time remaining (`HEAD` request, nothing is downloaded) | The official installer address, read from the winget manifest |
 | `api.github.com`, `github.com` | Whether a new version of MAJestic exists, and downloading it when you ask | Nothing about your software |
+| Windows Update service (Windows itself) | Which Windows updates are waiting | MAJestic contacts nothing: the Windows Update service asks Microsoft, as when you search in Settings |
 
 **Your software list is never sent.** Each request is about a single program and
 carries no personal identifier; like any connection, it reveals your IP address to
-the service contacted. The “Use online sources” and “Look up versions of unmanaged
-software” settings turn these requests off. The updates themselves are downloaded
+the service contacted. The “Use online sources”, “Look up versions of unmanaged
+software” and “Show Windows updates” settings turn these requests off. The updates themselves are downloaded
 by winget, the Microsoft Store, Chocolatey or Scoop from their usual sources, and
 only when you start them.
 

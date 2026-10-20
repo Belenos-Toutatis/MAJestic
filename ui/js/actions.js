@@ -30,7 +30,14 @@ export async function attachBackendListeners() {
     listen('job-progress', onJobProgress),
     listen('queue-progress', onQueueProgress),
     listen('updates-done', onUpdatesDone),
+    listen('windows-updates', onWindowsUpdates),
   ]);
+}
+
+function onWindowsUpdates(data) {
+  if (!data || typeof data !== 'object') return;
+  state.wu = { searching: false, data };
+  bus.emit('windows-update', state.wu);
 }
 
 function onScanProgress(p) {
@@ -38,6 +45,11 @@ function onScanProgress(p) {
   if (p.step === 'lookup') {
     state.lookup = p;
     bus.emit('lookup', p);
+    return;
+  }
+  if (p.step === 'windows_update') {
+    state.wu = { ...(state.wu || {}), searching: p.state === 'started', progress: p };
+    bus.emit('windows-update', state.wu);
     return;
   }
   if (!state.scan) state.scan = { steps: {}, startedAt: Date.now(), error: null };
@@ -195,6 +207,12 @@ export async function openUrl(url) {
 
 export async function openStoreUpdates() {
   try { await invoke('open_store_updates'); toast(t('links.storeOpened'), { duration: 2400 }); }
+  catch (err) { toast(t('links.openFailed', { error: errorText(err) }), { tone: 'danger' }); }
+}
+
+/** Settings › Windows Update: `check` starts a search, `optional` lists optional updates. */
+export async function openWindowsUpdate(page = 'check') {
+  try { await invoke('open_windows_update', { page }); toast(t(page === 'optional' ? 'wu.openedOptional' : 'wu.opened'), { duration: 3200 }); }
   catch (err) { toast(t('links.openFailed', { error: errorText(err) }), { tone: 'danger' }); }
 }
 

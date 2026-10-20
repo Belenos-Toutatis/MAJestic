@@ -378,6 +378,70 @@ pub enum ScanStep {
     Processes,
     /// Background phase: latest-version lookups for unmanaged programs.
     Lookup,
+    /// Background phase: updates waiting in Windows Update.
+    WindowsUpdate,
+}
+
+/// Classification of a pending Windows update.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WindowsUpdateKind {
+    /// Security update (monthly cumulative update, .NET security fix...).
+    Security,
+    /// Non-security fix that Microsoft rates critical.
+    Critical,
+    /// New Windows version or feature pack.
+    Feature,
+    /// Other updates and update rollups.
+    Update,
+    /// Hardware driver.
+    Driver,
+    /// Microsoft Defender security intelligence.
+    Definition,
+}
+
+/// One update waiting in Windows Update.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowsUpdate {
+    pub title: String,
+    /// `KB5031234`...
+    pub kb: Vec<String>,
+    pub kind: WindowsUpdateKind,
+    /// Microsoft's security rating: `Critical`, `Important`, `Moderate`, `Low`.
+    pub severity: Option<String>,
+    /// Offered on demand only (Settings › Windows Update › Optional updates).
+    pub optional: bool,
+    /// Already downloaded, ready to install.
+    pub downloaded: bool,
+    /// Download size in bytes (the largest possible), when known.
+    pub size: Option<u64>,
+    /// Installing it may require a restart.
+    pub reboot: bool,
+    /// Publication date (YYYY-MM-DD).
+    pub date: Option<String>,
+    pub support_url: Option<String>,
+}
+
+/// Event `windows-updates` / command `get_windows_updates`: what Windows
+/// Update has waiting.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowsUpdates {
+    pub updates: Vec<WindowsUpdate>,
+    /// Updates are installed and Windows waits for a restart to finish.
+    pub reboot_pending: bool,
+    /// Last successful search by Windows itself (RFC 3339).
+    pub last_search: Option<String>,
+    /// Last successful installation by Windows itself (RFC 3339).
+    pub last_install: Option<String>,
+    /// The list comes from a fresh online search (`false`: Windows' cached
+    /// results, the online search failed).
+    pub online: bool,
+    /// Windows Update could not be queried at all (service disabled...).
+    pub error: Option<String>,
+    /// When MAJestic asked (RFC 3339).
+    pub checked_at: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

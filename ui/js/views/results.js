@@ -5,12 +5,13 @@ import { h, clear, debounce } from '../dom.js';
 import { icon } from '../icons.js';
 import { t, fmt } from '../i18n.js';
 import { invoke } from '../api.js';
-import { state, bus, runActive } from '../state.js';
+import { state, bus, runActive, settings } from '../state.js';
 import {
   PRIORITIES, CATEGORY_ORDER, kindOf, priorityOf, categoryOf, isSelectable, buildJob,
   normSource, sourceInfo, needsElevation, categoryInfo,
 } from '../model.js';
-import { startScan, startJobs, selectedJobs, openStoreUpdates } from '../actions.js';
+import { startScan, startJobs, selectedJobs, openStoreUpdates, openWindowsUpdate } from '../actions.js';
+import { wuRow, wuTone, kindOfWu } from '../components/windows-update.js';
 import { button, iconButton, infoDot, banner, emptyState, spinner } from '../components/widgets.js';
 import { itemRow, updateRowLabel } from '../components/row.js';
 import { openDetails, refreshDetails, closeDetails } from './details.js';
@@ -263,7 +264,7 @@ export function mountResults(container) {
         h('h2', { class: 'group-title' },
           h('span', { class: 'group-dot' }),
           h('span', { tip: [title, text], tabindex: -1 }, title),
-          h('span', { class: 'group-count num' }, fmt.number(count)),
+          count === null || count === undefined ? null : h('span', { class: 'group-count num' }, fmt.number(count)),
           info ? infoDot(info[0], info[1]) : null),
         h('p', { class: 'group-text' }, text)),
       extra || null,
@@ -320,7 +321,56 @@ export function mountResults(container) {
     renderBar();
   }
 
+  // Updates waiting in Windows Update: shown here, installed by Windows itself.
+  function windowsUpdateGroup() {
+    if (!settings().windowsUpdate) return null;
+    const wu = state.wu || {};
+    const data = wu.data;
+    if (!data && !wu.searching) return null;
+    const info = [t('wu.title'), t('wu.info')];
+    const open = (primary) => button({
+      label: t('wu.open'), icon: 'external', size: 'small', variant: primary ? 'primary' : undefined,
+      tip: [t('wu.open'), t('wu.openTip')], onClick: () => openWindowsUpdate('check'),
+    });
+    const searchingNote = wu.searching
+      ? h('span', { class: 'lookup-pill', tip: [t('wu.searchingTitle'), t('wu.searchingTip')], tabindex: 0 }, spinner(true), t('wu.refreshing'))
+      : null;
+    if (!data) {
+      return group({ id: 'windows-update', tone: 'neutral', title: t('wu.title'), text: t('wu.searching'), count: null, info, rows: [], extra: searchingNote });
+    }
+    const since = data.lastSearch ? t('wu.lastSearch', { when: fmt.relative(data.lastSearch) }) : '';
+    const rows = [];
+    if (data.rebootPending) {
+      rows.push(h('li', { class: 'wu-note' }, banner({ tone: 'gold', icon: 'restart', title: t('wu.rebootPendingTitle'), text: t('wu.rebootPendingText') })));
+    }
+    if (data.error) {
+      return group({
+        id: 'windows-update', tone: 'uncertain', title: t('wu.title'), count: null, info, rows,
+        text: t('wu.error', { code: String(data.error).split(' ')[0] }),
+        extra: h('div', { class: 'row-flex' }, searchingNote, open(true)),
+      });
+    }
+    const list = Array.isArray(data.updates) ? data.updates : [];
+    for (const u of list) rows.push(wuRow(u));
+    const security = list.filter((u) => !u.optional && kindOfWu(u) === 'security').length;
+    const optional = list.filter((u) => u.optional).length;
+    let text;
+    if (!list.length) text = [t('wu.none'), since].filter(Boolean).join(' ');
+    else {
+      text = security ? t('wu.pendingSecurity', { count: list.length, security }) : t('wu.pending', { count: list.length });
+      if (!data.online) text += ' ' + t('wu.cached', { when: data.lastSearch ? fmt.relative(data.lastSearch) : '?' });
+    }
+    const extra = h('div', { class: 'row-flex' },
+      searchingNote,
+      optional ? button({ label: t('wu.openOptional'), icon: 'chip', size: 'small', tip: [t('wu.openOptional'), t('wu.openOptionalTip')], onClick: () => openWindowsUpdate('optional') }) : null,
+      open(list.length > 0));
+    const tone = list.length ? wuTone(list) : (data.rebootPending ? 'major' : 'success');
+    return group({ id: 'windows-update', tone, title: t('wu.title'), text, count: list.length, info, rows, extra });
+  }
+
   function renderUpdatesTab(panel) {
+    const wuGroup = windowsUpdateGroup();
+    if (wuGroup) panel.append(wuGroup);
     const ups = updates().filter(matches);
     const man = manual().filter(matches);
     const ign = ignored().filter(matches);
@@ -374,9 +424,10 @@ export function mountResults(container) {
       const inCat = list.filter((i) => categoryOf(i) === cat);
       if (!inCat.length) continue;
       const bys = [...new Set(inCat.map((i) => categoryInfo(i).by).filter(Boolean))];
-      const extra = cat === 'store_app'
-        ? button({ label: t('alternatives.storeUpdate'), icon: 'store', size: 'small', tip: [t('alternatives.storeUpdate'), t('alternatives.storeUpdateTip')], onClick: openStoreUpdates })
-        : null;
+      let extra = null;
+      if (cat === 'store_app') extra = button({ label: t('alternatives.storeUpdate'), icon: 'store', size: 'small', tip: [t('alternatives.storeUpdate'), t('alternatives.storeUpdateTip')], onClick: openStoreUpdates });
+      else if (cat === 'system_component') extra = button({ label: t('wu.open'), icon: 'external', size: 'small', tip: [t('wu.open'), t('wu.openTip')], onClick: () => openWindowsUpdate('check') });
+      else if (cat === 'driver') extra = button({ label: t('wu.openOptional'), icon: 'chip', size: 'small', tip: [t('wu.openOptional'), t('wu.openOptionalDriversTip')], onClick: () => openWindowsUpdate('optional') });
       panel.append(group({
         id: `cat-${cat}`, tone: 'neutral',
         title: t(`categories.${cat}.group`),
@@ -588,6 +639,7 @@ export function mountResults(container) {
     }
     rerenderSoon();
   }));
+  offs.push(bus.on('windows-update', debounce(() => { if (state.ui.tab === 'updates') renderList(); }, 150)));
   offs.push(bus.on('lookup', debounce(() => { const top = scroll.scrollTop; renderHead(); scroll.scrollTop = top; }, 200)));
   offs.push(bus.on('settings', () => { /* language handled by app */ }));
 

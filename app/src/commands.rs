@@ -24,6 +24,8 @@ pub struct AppState {
     pub app_update: Mutex<Option<majestic_core::selfupdate::Release>>,
     /// Previous version when this process was started by an update.
     pub updated_from: Option<String>,
+    /// Last answer of Windows Update (searched after each scan).
+    pub windows_updates: Mutex<Option<WindowsUpdates>>,
 }
 
 /// Runs blocking work off the async runtime.
@@ -145,7 +147,44 @@ pub async fn scan(app: AppHandle) -> Result<ScanResult, String> {
             scan::lookup_unmanaged(&items, &progress, &on_item);
         });
     }
+    if settings.windows_update {
+        let online = result.environment.online;
+        let handle = app.clone();
+        std::thread::spawn(move || search_windows_updates(&handle, online));
+    }
     Ok(result)
+}
+
+/// Background phase of a scan: what Windows Update has waiting (an online
+/// search can take minutes). Emits `scan-progress` and `windows-updates`.
+fn search_windows_updates(app: &AppHandle, online: bool) {
+    let progress = |state: StepState| {
+        let _ = app.emit("scan-progress", ScanProgress { step: ScanStep::WindowsUpdate, state, detail: None, fraction: None });
+    };
+    progress(StepState::Started);
+    let found = majestic_core::system::windows_update::pending(online);
+    progress(if found.error.is_some() { StepState::Failed } else { StepState::Done });
+    if let Ok(mut last) = app.state::<AppState>().windows_updates.lock() {
+        *last = Some(found.clone());
+    }
+    let _ = app.emit("windows-updates", found);
+}
+
+/// Last answer of Windows Update, `null` before the first search ends.
+#[tauri::command]
+pub fn get_windows_updates(state: State<'_, AppState>) -> Option<WindowsUpdates> {
+    state.windows_updates.lock().ok().and_then(|w| w.clone())
+}
+
+/// Opens Settings › Windows Update: `check` starts a search, `optional`
+/// shows the optional updates (drivers).
+#[tauri::command]
+pub fn open_windows_update(page: String) -> Result<(), String> {
+    let page = match page.as_str() {
+        "optional" => shell::SettingsPage::WindowsUpdateOptional,
+        _ => shell::SettingsPage::WindowsUpdateCheck,
+    };
+    shell::open_settings(page).map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]

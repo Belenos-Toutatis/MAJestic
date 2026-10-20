@@ -70,6 +70,8 @@ fn main() {
             commands::open_url,
             commands::open_store_updates,
             commands::open_logs,
+            commands::get_windows_updates,
+            commands::open_windows_update,
             appupdate::check_app_update,
             appupdate::install_app_update,
         ])

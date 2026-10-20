@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS = {
   includeUnknown: true,
   useChocolatey: true,
   useScoop: true,
+  windowsUpdate: true,
   closeApps: 'ask',
   ignored: [{ key: 'winget:Oracle.VirtualBox', name: 'Oracle VirtualBox', version: '7.2.4' }],
   schedule: null,
@@ -213,7 +214,34 @@ async function scan() {
   if (settings.lookupUnmanaged && settings.onlineIntel) {
     lookupTimer = setTimeout(() => runLookup(items), 400 / SPEED);
   }
+  if (settings.windowsUpdate) setTimeout(runWindowsUpdate, 300 / SPEED);
   return result;
+}
+
+// ?wu=none | error | reboot changes what Windows Update answers.
+let lastWindowsUpdates = null;
+async function runWindowsUpdate() {
+  emit('scan-progress', { step: 'windows_update', state: 'started', detail: null, fraction: null });
+  await sleep(4000 / SPEED);
+  const mode = params.get('wu');
+  const now = new Date();
+  const ago = (h) => new Date(now.getTime() - h * 3600e3).toISOString();
+  const data = {
+    updates: mode === 'none' || mode === 'error' ? [] : [
+      { title: '2026-10 Mise à jour cumulative pour Windows 11 Version 25H2 pour les systèmes x64 (KB5066835)', kb: ['KB5066835'], kind: 'security', severity: 'Critical', optional: false, downloaded: true, size: 812 * MB, reboot: true, date: '2026-10-14', supportUrl: 'https://support.microsoft.com/help/5066835' },
+      { title: 'Mise à jour de la veille de sécurité pour Microsoft Defender Antivirus - KB2267602 (version 1.439.120.0)', kb: ['KB2267602'], kind: 'definition', severity: null, optional: false, downloaded: false, size: 61 * MB, reboot: false, date: '2026-10-19', supportUrl: null },
+      { title: 'Realtek Semiconductor Corp. - Extension - 10.0.26100.21', kb: [], kind: 'driver', severity: null, optional: true, downloaded: false, size: 2 * MB, reboot: false, date: '2026-09-02', supportUrl: null },
+    ],
+    rebootPending: mode === 'reboot',
+    lastSearch: ago(5),
+    lastInstall: ago(30),
+    online: true,
+    error: mode === 'error' ? '0x80070422 Le service ne peut pas être démarré.' : null,
+    checkedAt: now.toISOString(),
+  };
+  lastWindowsUpdates = data;
+  emit('scan-progress', { step: 'windows_update', state: data.error ? 'failed' : 'done', detail: null, fraction: null });
+  emit('windows-updates', data);
 }
 
 async function runLookup(items) {
@@ -499,6 +527,13 @@ const handlers = {
   },
   async open_logs() {
     console.info('[mock] open_logs');
+    return null;
+  },
+  async get_windows_updates() {
+    return lastWindowsUpdates;
+  },
+  async open_windows_update({ page }) {
+    console.info('[mock] open_windows_update', page);
     return null;
   },
   // ?appUpdate=1 offers a newer MAJestic; ?appUpdate=fail makes its install fail.

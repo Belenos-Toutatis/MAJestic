@@ -65,6 +65,8 @@ Argument names are camelCase on the JS side.
 | `open_url` | `{ url }` | `null` |
 | `open_store_updates` | – | `null` |
 | `open_logs` | – | `null` |
+| `get_windows_updates` | – | `WindowsUpdates \| null` (last answer of Windows Update, searched in the background after each scan) |
+| `open_windows_update` | `{ page }` | `null`; opens Settings › Windows Update and starts a search (`check`), or the optional updates (`optional`) |
 | `check_app_update` | – | `{ version, pageUrl, notes, size } \| null` (newer MAJestic on GitHub; `null` when offline or online sources are off) |
 | `install_app_update` | – | never returns on success: the new version starts and this one exits; error `{ kind, message }` (`busy`, `not_checked`, `network`, `hash_mismatch`, `version_mismatch`, `write_denied`, `swap_failed`, `restart_failed`) |
 
@@ -77,6 +79,7 @@ Argument names are camelCase on the JS side.
 | `job-progress` | `JobEvent` |
 | `queue-progress` | `QueueProgress` |
 | `updates-done` | `{ rebootRequired: bool, elevationRefused: bool, results: { key, state: JobState }[] }` |
+| `windows-updates` | `WindowsUpdates` (`updates`, `rebootPending`, `lastSearch`, `lastInstall`, `online`, `error`, `checkedAt`); `scan-progress` reports the step `windows_update` meanwhile |
 | `app-update-progress` | `{ phase: "download" \| "install" \| "restart", downloaded, total }` |
 
 ### Building a `JobRequest` from an `UpdateItem`
@@ -116,3 +119,15 @@ the UI announces the update. Settings and history live in
 `%LOCALAPPDATA%\MAJestic` and are untouched. Until releases are code-signed,
 the hash only protects against corrupted or swapped downloads, not against a
 compromised GitHub account.
+
+## Windows Update
+
+After each scan (setting `windowsUpdate`), a background thread asks the
+Windows Update Agent API (`wuapi.dll`, no administrator rights) for
+`IsInstalled=0 and IsHidden=0` updates, online first and from Windows' cached
+results when that fails (`system/windows_update.rs`). Classification uses the
+stable category ids (security, critical, definition, driver, feature...),
+`BrowseOnly` marks optional updates, `ISystemInformation.RebootRequired` a
+pending restart. MAJestic never installs them: the UI's button opens
+`ms-settings:windowsupdate-action` (or `-optionalupdates`), and Windows does the
+rest. The scheduled check counts pending security updates as important.

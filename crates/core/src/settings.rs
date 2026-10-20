@@ -87,6 +87,8 @@ pub struct Settings {
     pub include_unknown: bool,
     pub use_chocolatey: bool,
     pub use_scoop: bool,
+    /// Show the updates waiting in Windows Update.
+    pub windows_update: bool,
     pub close_apps: CloseAppsPolicy,
     pub ignored: Vec<IgnoreRule>,
     /// Scheduled background check (Windows Task Scheduler). `None` = disabled.
@@ -104,6 +106,7 @@ impl Default for Settings {
             include_unknown: true,
             use_chocolatey: true,
             use_scoop: true,
+            windows_update: true,
             close_apps: CloseAppsPolicy::Ask,
             ignored: Vec::new(),
             schedule: None,

@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = {
   includeUnknown: true,
   useChocolatey: true,
   useScoop: true,
+  windowsUpdate: true,
   closeApps: 'ask',
   ignored: [],
   schedule: null,
@@ -38,6 +39,7 @@ export const state = {
   },
   run: null,             // see actions.newRun
   appUpdate: null,       // newer MAJestic release (check_app_update)
+  wu: null,              // { searching, data: WindowsUpdates } (Windows Update phase)
 };
 
 export function itemByKey(key) {

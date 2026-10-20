@@ -17,10 +17,39 @@ use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 use crate::system::registry::RegKey;
 use crate::system::{from_wide, wide, ComGuard};
 
+/// Pages of the Settings app MAJestic opens (fixed addresses, never input).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingsPage {
+    /// Windows Update, starting a search ("Check for updates").
+    WindowsUpdateCheck,
+    /// Windows Update › Optional updates (drivers...).
+    WindowsUpdateOptional,
+    /// Apps › Installed apps (uninstall).
+    InstalledApps,
+}
+
+impl SettingsPage {
+    pub fn uri(self) -> &'static str {
+        match self {
+            SettingsPage::WindowsUpdateCheck => "ms-settings:windowsupdate-action",
+            SettingsPage::WindowsUpdateOptional => "ms-settings:windowsupdate-optionalupdates",
+            SettingsPage::InstalledApps => "ms-settings:appsfeatures",
+        }
+    }
+}
+
+/// Opens a page of the Settings app.
+pub fn open_settings(page: SettingsPage) -> anyhow::Result<()> {
+    shell_open(page.uri())
+}
+
 /// Opens a URL with the default handler. Only `https:`, `http:` and
 /// `ms-windows-store:` schemes are allowed.
 pub fn open_url(url: &str) -> anyhow::Result<()> {
-    let url = validate_url(url)?;
+    shell_open(validate_url(url)?)
+}
+
+fn shell_open(url: &str) -> anyhow::Result<()> {
     let _com = ComGuard::new();
     let operation = wide("open");
     let file = wide(url);

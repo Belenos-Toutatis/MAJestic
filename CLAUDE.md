@@ -51,7 +51,7 @@ python -m http.server -d ui            # interface dans un navigateur, backend s
 
 - Fermer `MAJestic.exe` avant de recompiler (sinon « Accès refusé », exe verrouillé).
 - Mock (`ui/js/mock.js`, actif hors Tauri) : `?speed=4`, `?mock=empty`,
-  `?mock=scan-error`, `?uac=refuse`, `?appUpdate=1` (ou `=fail`), `?updated=1`.
+  `?mock=scan-error`, `?uac=refuse`, `?appUpdate=1` (ou `=fail`), `?updated=1`, `?wu=none|error|reboot`.
 - Modes de l'exe : sans argument = fenêtre ; `--worker <pipe> <pid>` = processus
   élevé ; `--check` = vérification planifiée (toast, sans fenêtre) ;
   `--after-update <pid> <version>` = fenêtre lancée par l'auto-mise à jour.
@@ -114,6 +114,12 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `cac
   l'ancien (verrou d'instance unique) puis supprime le `.old`. Les notes affichées
   s'arrêtent au marqueur `<!-- download-notes -->` de `.github/release-notes.md`.
   Respecte « Utiliser les sources en ligne ».
+- **Windows Update** (`system/windows_update.rs`, API COM wuapi, sans droits admin) :
+  recherche en arrière-plan après chaque analyse (étape `windows_update`, événement
+  `windows-updates`), classement par identifiants de catégorie (les noms sont
+  traduits), redémarrage en attente, dates de Windows. MAJestic **n'installe pas** ces
+  mises à jour : bouton `ms-settings:windowsupdate-action` (ou `-optionalupdates`).
+  Une recherche hors ligne prend ~15 s, en ligne bien plus. Mock : `?wu=none|error|reboot`.
 - **Retour arrière** : winget, Microsoft Store et Chocolatey (`choco::list_versions`).
 - **Vérification planifiée** : tâche « MAJestic UpdateCheck » (XML UTF-16 LE avec BOM,
   `StartWhenAvailable`, lance `--check`). Toasts via l'AUMID `MAJestic.UpdateAssistant`

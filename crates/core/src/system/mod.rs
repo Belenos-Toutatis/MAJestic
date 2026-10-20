@@ -10,6 +10,7 @@ pub mod icons;
 pub mod procs;
 pub mod registry;
 pub mod shell;
+pub mod windows_update;
 
 use std::ffi::OsStr;
 use std::marker::PhantomData;

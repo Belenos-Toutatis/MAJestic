@@ -83,7 +83,8 @@ export function mountSettings(container) {
       row({ ic: 'search', id: 'set-lookupUnmanaged', title: t('settings.lookupUnmanaged'), desc: t('settings.lookupUnmanagedDesc'), info: [t('settings.lookupUnmanaged'), t('settings.lookupUnmanagedInfo')], control: sw('lookupUnmanaged', t('settings.lookupUnmanaged'), t('settings.lookupUnmanagedTip')) }),
       row({ ic: 'help', id: 'set-includeUnknown', title: t('settings.includeUnknown'), desc: t('settings.includeUnknownDesc'), info: [t('groups.uncertain.title'), t('groups.uncertain.info')], control: sw('includeUnknown', t('settings.includeUnknown'), t('settings.includeUnknownTip')) }),
       row({ ic: 'choco', id: 'set-useChocolatey', title: t('settings.useChocolatey'), desc: t('settings.useChocolateyDesc'), info: [t('sources.chocolatey.label'), t('sources.chocolatey.tip')], control: sw('useChocolatey', t('settings.useChocolatey'), t('settings.useChocolateyTip')) }),
-      row({ ic: 'scoop', id: 'set-useScoop', title: t('settings.useScoop'), desc: t('settings.useScoopDesc'), info: [t('sources.scoop.label'), t('sources.scoop.tip')], control: sw('useScoop', t('settings.useScoop'), t('settings.useScoopTip')) })));
+      row({ ic: 'scoop', id: 'set-useScoop', title: t('settings.useScoop'), desc: t('settings.useScoopDesc'), info: [t('sources.scoop.label'), t('sources.scoop.tip')], control: sw('useScoop', t('settings.useScoop'), t('settings.useScoopTip')) }),
+      row({ ic: 'shield', id: 'set-windowsUpdate', title: t('settings.windowsUpdate'), desc: t('settings.windowsUpdateDesc'), info: [t('wu.title'), t('wu.info')], control: sw('windowsUpdate', t('settings.windowsUpdate'), t('settings.windowsUpdateTip')) })));
 
     // Installation
     const policy = ['ask', 'always', 'never'].includes(s.closeApps) ? s.closeApps : 'ask';

@@ -9,7 +9,8 @@ import { button } from '../components/widgets.js';
 import { welcomeCard } from './welcome.js';
 
 export const SCAN_STEPS = ['environment', 'winget_upgrade', 'winget_list', 'registry', 'chocolatey', 'scoop',
-  'security_catalog', 'release_notes', 'processes', 'lookup'];
+  'security_catalog', 'release_notes', 'processes', 'lookup', 'windows_update'];
+const BACKGROUND = ['lookup', 'windows_update'];
 
 export function mountScan(container) {
   const view = h('div', { class: 'view scan-view' });
@@ -70,6 +71,10 @@ function stepStateOf(step) {
     if (!settings().lookupUnmanaged) return 'skipped';
     return state.lookup?.state || 'later';
   }
+  if (step === 'windows_update') {
+    if (!settings().windowsUpdate) return 'skipped';
+    return state.wu?.searching ? 'started' : 'later';
+  }
   return state.scan?.steps?.[step]?.state || 'pending';
 }
 
@@ -126,12 +131,12 @@ function mountScanning(view) {
   view.append(scroll);
 
   function update() {
-    const steps = SCAN_STEPS.filter((s) => s !== 'lookup');
+    const steps = SCAN_STEPS.filter((s) => !BACKGROUND.includes(s));
     let done = 0;
     for (const step of SCAN_STEPS) {
       const row = rows.get(step);
       const st = stepStateOf(step);
-      const p = step === 'lookup' ? state.lookup : state.scan?.steps?.[step];
+      const p = step === 'lookup' ? state.lookup : step === 'windows_update' ? null : state.scan?.steps?.[step];
       if (row.state !== st) {
         row.state = st;
         row.li.dataset.state = st;
@@ -142,7 +147,7 @@ function mountScanning(view) {
       const frac = typeof p?.fraction === 'number' ? Math.max(0, Math.min(1, p.fraction)) : null;
       row.mini.classList.toggle('visible', st === 'started' && frac !== null);
       row.mini.firstChild.style.transform = `scaleX(${frac ?? 0})`;
-      if (step !== 'lookup') {
+      if (!BACKGROUND.includes(step)) {
         if (st === 'done' || st === 'failed' || st === 'skipped') done += 1;
         else if (st === 'started') done += frac !== null ? frac * 0.9 : 0.35;
       }

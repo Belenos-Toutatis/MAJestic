@@ -692,3 +692,31 @@ button.strip-seg:hover { background: var(--surface-hover); }
   .history-table .act-col .btn { padding: 3px 7px; }
   .history-table td, .history-table thead th { padding-left: 10px; padding-right: 10px; }
 }
+
+/* ================================================================= Windows Update group */
+
+.wu-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 8px 8px 12px;
+  border-radius: var(--r-m);
+}
+.wu-row:hover { background: var(--surface-hover); }
+.wu-ic {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  flex: none;
+  border-radius: var(--r-m);
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+.wu-ic svg { width: 18px; height: 18px; }
+.wu-row.tone-critical .wu-ic { background: var(--critical-soft); color: var(--critical); }
+.wu-row.tone-major .wu-ic { background: var(--major-soft); color: var(--major); }
+.wu-row.tone-recommended .wu-ic { background: var(--recommended-soft); color: var(--recommended); }
+.wu-main { flex: 1; min-width: 0; }
+.wu-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wu-badges { gap: 6px; justify-content: flex-end; flex: none; max-width: 45%; }
+.wu-note { list-style: none; padding: 4px 0 6px; }
