@@ -53,7 +53,7 @@ python -m http.server -d ui            # interface dans un navigateur, backend s
 - Fermer `MAJestic.exe` avant de recompiler (sinon « Accès refusé », exe verrouillé).
 - Mock (`ui/js/mock.js`, actif hors Tauri) : `?speed=4`, `?mock=empty`,
   `?mock=scan-error`, `?uac=refuse`, `?appUpdate=1` (ou `=fail`, `=error`), `?updated=1`, `?wu=none|error|reboot`,
-  `?schedule=missing`, `?downloads=1`.
+  `?schedule=missing`, `?downloads=1`, `?repeated=1` (Xodo a déjà échoué 3 fois).
 - Modes de l'exe : sans argument = fenêtre ; `--worker <pipe> <pid>` = processus
   élevé ; `--check` = vérification planifiée (toast, sans fenêtre) ;
   `--after-update <pid> <version>` = fenêtre lancée par l'auto-mise à jour.
@@ -149,6 +149,11 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   Ses étiquettes portent une révision (`v9.3.5-2` = 9.3.5.0 installé), lue comme
   « avant 9.3.5 » : pas de fausse alerte. FileZilla n'a pas de fiche winget et son
   site refuse les robots (403) : sa version est vérifiée via Chocolatey.
+- **Échecs répétés** : `history::failure_counts` compte les échecs par (paquet,
+  version) depuis le dernier succès du paquet. À partir de 3 (`FAILURE_LIMIT`),
+  l'analyse ajoute la raison `repeated_failures` et ne coche plus la mise à jour ; à la
+  fin d'un lot, `updates-done` renvoie `failedAttempts` et le bilan met « Ignorer la
+  version » en premier.
 - **Installateurs restés sur le disque** (`cleanup.rs`, Paramètres › Installation) :
   sous-dossiers de `%TEMP%\WinGet` (sauf `cache`) et `%TEMP%\chocolatey`, fichiers du
   `cache` de Scoop, plus vieux que 10 min ; refusé pendant un lot ou si winget,

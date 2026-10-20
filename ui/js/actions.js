@@ -3,7 +3,7 @@
 
 import { invoke, listen, errorText } from './api.js';
 import { state, bus, setItems, replaceItem, itemByKey, runActive, settings } from './state.js';
-import { isSelectable, buildJob, runningOf, isFinal } from './model.js';
+import { isSelectable, buildJob, runningOf, isFinal, FAILURE_LIMIT } from './model.js';
 import { t } from './i18n.js';
 import { toast } from './components/toast.js';
 import { closeAppsDialog } from './components/close-apps.js';
@@ -99,6 +99,14 @@ function onUpdatesDone(payload) {
     if (!r?.key) continue;
     const entry = run.entries.get(r.key);
     if (entry && r.state) { entry.state = r.state; entry.finishedAt = entry.finishedAt || Date.now(); }
+    if (entry && r.failedAttempts) entry.failedAttempts = r.failedAttempts;
+    // A version that keeps failing is no longer selected (as after a scan).
+    const item = itemByKey(r.key);
+    if (item && r.failedAttempts >= FAILURE_LIMIT && entry?.job?.toVersion === item.availableVersion) {
+      const reasons = (item.assessment?.reasons || []).filter((x) => x.type !== 'repeated_failures');
+      replaceItem({ ...item, assessment: { ...item.assessment, preselect: false, reasons: [...reasons, { type: 'repeated_failures', count: r.failedAttempts }] } });
+      state.selection.delete(r.key);
+    }
   }
   run.done = {
     rebootRequired: !!payload?.rebootRequired,

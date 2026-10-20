@@ -239,6 +239,7 @@ export default {
     interactiveTip: "Runs the installation again with the program’s installer visible, so you can follow its steps.",
     download: "Open the download page",
     ignoreVersion: "Ignore version {version}",
+    repeated: "Version {version} has now failed {count} times: if nothing changes, ignore it. MAJestic will offer the next version as soon as it is out.",
     ignoreVersionTip: "Stop offering this version. The next update will be offered as usual.",
     code: "Exit code: {code}",
     logTitle: "Technical details",
@@ -471,6 +472,11 @@ export default {
       label: "Also managed by {other}",
       title: "Managed by two package managers",
       text: "This software also seems installed or tracked by {other}. Update it with a single manager to avoid conflicts.",
+    },
+    repeated_failures: {
+      label: "Keeps failing",
+      title: "This version already failed {count} times",
+      text: "The last {count} attempts to install this version failed: it is no longer selected by default. If it fails again, ignore it (Actions › “Ignore version”): MAJestic will offer the next version as soon as it is out.",
     },
     stale_installer: {
       label: "Broken winget entry",

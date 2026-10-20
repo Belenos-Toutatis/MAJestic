@@ -5,7 +5,7 @@ import { h, reducedMotion } from '../dom.js';
 import { icon } from '../icons.js';
 import { t, fmt } from '../i18n.js';
 import { state, itemByKey } from '../state.js';
-import { stateType, failureInfo, needsElevation } from '../model.js';
+import { stateType, failureInfo, needsElevation, FAILURE_LIMIT } from '../model.js';
 import { startJobs, backToResults, go, openUrl, openLogs, webSearchUrl, ignoreItem } from '../actions.js';
 import { avatar } from '../components/avatar.js';
 import { button, banner, emptyState, badge } from '../components/widgets.js';
@@ -176,7 +176,11 @@ function failureCard(entry, run) {
   const code = entry.state.code;
   const excerpt = entry.state.logExcerpt;
   const actions = [];
-  for (const a of f.actions) {
+  // A version that keeps failing: ignoring it comes first.
+  const attempts = Number(entry.failedAttempts) || 0;
+  const repeated = attempts >= FAILURE_LIMIT;
+  const kinds = repeated && job.toVersion ? ['ignoreVersion', ...f.actions.filter((a) => a !== 'ignoreVersion')] : f.actions;
+  for (const a of kinds) {
     switch (a) {
       case 'retry':
         actions.push(button({ label: t('summary.retry'), icon: 'refresh', size: 'small', tip: [t('summary.retry'), t('summary.retryTip')], onClick: () => startJobs([job]) }));
@@ -207,7 +211,7 @@ function failureCard(entry, run) {
       default:
     }
   }
-  if (!f.actions.includes('logs')) {
+  if (!kinds.includes('logs')) {
     actions.push(button({ label: t('common.openLogs'), icon: 'folder', size: 'small', variant: 'subtle', tip: [t('common.openLogs'), t('common.openLogsTip')], onClick: openLogs }));
   }
   return h('li', { class: 'fail-card' },
@@ -217,6 +221,7 @@ function failureCard(entry, run) {
         h('span', { class: 'strong' }, job.name),
         h('span', { class: 'badge tone-danger', tabindex: 0, 'data-tip': '', 'data-tip-title': f.title, 'data-tip-text': code !== null && code !== undefined ? t('summary.code', { code }) : f.text }, icon('error'), f.title)),
       h('p', { class: 'muted' }, f.text),
+      repeated ? h('p', { class: 'fail-repeated' }, icon('warning'), t('summary.repeated', { count: attempts, version: job.toVersion || '?' })) : null,
       excerpt ? h('details', { class: 'log-excerpt' },
         h('summary', { tip: [t('summary.logTitle'), t('summary.logTip')] }, t('summary.logTitle')),
         h('pre', null, String(excerpt).slice(0, 2000))) : null,

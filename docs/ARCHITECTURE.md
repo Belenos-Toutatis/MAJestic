@@ -85,7 +85,7 @@ Argument names are camelCase on the JS side.
 | `item-updated` | `UpdateItem` (replace the item with the same `key`) |
 | `job-progress` | `JobEvent` |
 | `queue-progress` | `QueueProgress` |
-| `updates-done` | `{ rebootRequired: bool, elevationRefused: bool, results: { key, state: JobState }[] }` |
+| `updates-done` | `{ rebootRequired: bool, elevationRefused: bool, results: { key, state: JobState, failedAttempts? }[] }` (`failedAttempts`: after a failure, failed attempts at that version since the package's last success; from 3 (`history::FAILURE_LIMIT`) the scan adds the reason `repeated_failures { count }` and no longer preselects it) |
 | `windows-updates` | `WindowsUpdates` (`updates`, `rebootPending`, `lastSearch`, `lastInstall`, `online`, `error`, `checkedAt`); `scan-progress` reports the step `windows_update` meanwhile |
 | `app-update-progress` | `{ phase: "download" \| "install" \| "restart", downloaded, total }` |
 

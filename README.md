@@ -58,6 +58,9 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
   (sécurité, pilotes, antivirus Defender) et signale un redémarrage nécessaire,
   avec un bouton qui ouvre Windows Update et lance la recherche. C'est Windows qui
   les installe, comme d'habitude.
+- **Mises à jour qui échouent toujours** : après 3 échecs sur la même version,
+  MAJestic ne la coche plus d'office et propose de l'ignorer ; la version suivante
+  sera proposée normalement.
 - **Libérer de la place** : MAJestic repère les installateurs restés sur le disque
   après une installation échouée ou interrompue (winget, Chocolatey, cache de Scoop)
   et les supprime d'un clic (Paramètres › Installation).

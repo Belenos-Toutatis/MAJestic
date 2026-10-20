@@ -40,6 +40,9 @@ impl BatchControl {
 struct JobResult {
     key: String,
     state: JobState,
+    /// After a failure: failed attempts at this version so far (history).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    failed_attempts: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -209,6 +212,14 @@ fn result_label(state: &JobState) -> &'static str {
     }
 }
 
+/// The version a job installs, as recorded in the history.
+fn target_version(job: &JobRequest) -> Option<String> {
+    match &job.action {
+        JobAction::InstallVersion { version } => Some(version.clone()),
+        _ => job.to_version.clone(),
+    }
+}
+
 fn record(job: &JobRequest, state: &JobState, t: majestic_core::eta::Timings) {
     let (failure, code, reboot_required) = match state {
         JobState::Failed { code, kind, .. } => (Some(*kind), *code, false),
@@ -223,10 +234,7 @@ fn record(job: &JobRequest, state: &JobState, t: majestic_core::eta::Timings) {
         name: job.name.clone(),
         action: job.action.clone(),
         from_version: job.from_version.clone(),
-        to_version: match &job.action {
-            JobAction::InstallVersion { version } => Some(version.clone()),
-            _ => job.to_version.clone(),
-        },
+        to_version: target_version(job),
         result: result_label(state).into(),
         failure,
         code,
@@ -325,7 +333,7 @@ fn run(app: &AppHandle, jobs: Vec<JobRequest>, close_apps: Vec<String>, allow_el
             let ev = JobEvent::state(&job.key, JobState::Cancelled);
             emit_job(app, &ev);
             record(job, &JobState::Cancelled, Default::default());
-            results.push(JobResult { key: job.key.clone(), state: JobState::Cancelled });
+            results.push(JobResult { key: job.key.clone(), state: JobState::Cancelled, failed_attempts: None });
             continue;
         }
 
@@ -400,7 +408,11 @@ fn run(app: &AppHandle, jobs: Vec<JobRequest>, close_apps: Vec<String>, allow_el
         if !removed {
             relaunch(&to_relaunch);
         }
-        results.push(JobResult { key: job.key.clone(), state });
+        let failed_attempts = match (&state, target_version(job)) {
+            (JobState::Failed { .. }, Some(v)) => Some(history::failed_attempts(&job.key, &v)),
+            _ => None,
+        };
+        results.push(JobResult { key: job.key.clone(), state, failed_attempts });
     }
 
     if let Some(w) = worker.take() {

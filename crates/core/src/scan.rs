@@ -24,7 +24,7 @@ use crate::pkgmgr::{choco, scoop};
 use crate::settings::Settings;
 use crate::system::registry::{self, InstalledProgram};
 use crate::system::{classify, elevation, fileinfo, procs, shell};
-use crate::{paths, version, winget};
+use crate::{history, paths, version, winget};
 
 const KEV_MAX_AGE: Duration = Duration::from_secs(24 * 3600);
 const INTEL_THREADS: usize = 8;
@@ -500,8 +500,17 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
     // Every item gets one: up-to-date and unmanaged programs keep informative
     // reasons (version read from the file, known exploited flaws...).
     let today = today();
+    let failures = history::failure_counts(&history::load());
     for item in b.items.iter_mut() {
         item.ignored = settings.is_ignored(&item.key, item.available_version.as_deref());
+        if let Some(&count) = item
+            .available_version
+            .as_ref()
+            .and_then(|v| failures.get(&(item.key.clone(), v.clone())))
+            .filter(|&&c| c >= history::FAILURE_LIMIT)
+        {
+            item.assessment.reasons.push(Reason::RepeatedFailures { count });
+        }
         let kev = kev_reason(kev.as_ref(), item, &today);
         let notes = item.release_notes.clone();
         let extra = std::mem::take(&mut item.assessment.reasons);
@@ -514,7 +523,12 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
         // winget leaves these out of `upgrade --all` on purpose (the
         // publisher asked for it): the user decides. A stale installer would
         // change nothing.
-        let stale = item.assessment.reasons.iter().any(|r| matches!(r, Reason::StaleInstaller { .. }));
+        // Nor would a version that keeps failing.
+        let stale = item
+            .assessment
+            .reasons
+            .iter()
+            .any(|r| matches!(r, Reason::StaleInstaller { .. } | Reason::RepeatedFailures { .. }));
         if item.ignored || item.explicit_only || stale {
             item.assessment.preselect = false;
         }

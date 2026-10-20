@@ -744,3 +744,6 @@ button.strip-seg:hover { background: var(--surface-hover); }
 .sched-actions { display: flex; align-items: center; gap: 10px; padding: 12px 16px; flex-wrap: wrap; border-top: 1px solid var(--border); }
 .sched-actions p { display: flex; align-items: center; gap: 4px; min-width: 200px; }
 .sched-actions p svg { width: 14px; height: 14px; flex: none; }
+
+.fail-repeated { display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 0; color: var(--warning-text, var(--text)); }
+.fail-repeated svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }

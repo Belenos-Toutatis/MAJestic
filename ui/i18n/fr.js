@@ -239,6 +239,7 @@ export default {
     interactiveTip: "Relance l’installation en affichant l’installateur du logiciel, pour suivre ses étapes vous-même.",
     download: "Ouvrir la page de téléchargement",
     ignoreVersion: "Ignorer la version {version}",
+    repeated: "La version {version} a maintenant échoué {count} fois : si rien ne change, ignorez-la. MAJestic proposera la version suivante dès sa sortie.",
     ignoreVersionTip: "Ne plus proposer cette version. La mise à jour suivante sera proposée normalement.",
     code: "Code de sortie : {code}",
     logTitle: "Détail technique",
@@ -471,6 +472,11 @@ export default {
       label: "Aussi géré par {other}",
       title: "Géré par deux gestionnaires",
       text: "Ce logiciel semble aussi installé ou suivi par {other}. Mettez-le à jour avec un seul gestionnaire pour éviter les conflits.",
+    },
+    repeated_failures: {
+      label: "Échoue sans cesse",
+      title: "Cette version a déjà échoué {count} fois",
+      text: "Les {count} dernières tentatives d’installer cette version ont échoué : elle n’est plus cochée d’office. Si elle échoue encore, ignorez-la (Actions › « Ignorer la version ») : MAJestic proposera la version suivante dès sa sortie.",
     },
     stale_installer: {
       label: "Fiche winget erronée",

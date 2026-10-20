@@ -143,7 +143,11 @@ const REASON_META = {
   app_running: { tone: 'warning', icon: 'activity' },
   duplicate_manager: { tone: 'uncertain', icon: 'duplicate' },
   stale_installer: { tone: 'warning', icon: 'warning' },
+  repeated_failures: { tone: 'warning', icon: 'error' },
 };
+
+/** After this many failed attempts at one version, ignoring it is suggested (history::FAILURE_LIMIT). */
+export const FAILURE_LIMIT = 3;
 
 function exposureLabel(category) {
   return has(`exposure.${category}`) ? t(`exposure.${category}`) : t('exposure.other');
@@ -192,6 +196,9 @@ export function describeReason(reason) {
       break;
     case 'stale_installer':
       p.version = reason.installerVersion || '?';
+      break;
+    case 'repeated_failures':
+      p.count = Number(reason.count) || FAILURE_LIMIT;
       break;
     default:
       break;

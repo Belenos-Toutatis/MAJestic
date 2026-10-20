@@ -148,6 +148,10 @@ pub enum Reason {
     /// The winget manifest of the available version points to the installer
     /// of the installed version: installing it changes nothing.
     StaleInstaller { installer_version: String },
+    /// Installing this version already failed this many times in a row
+    /// (at least `history::FAILURE_LIMIT`): no longer preselected, and
+    /// ignoring the version is suggested.
+    RepeatedFailures { count: u32 },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

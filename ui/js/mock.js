@@ -67,6 +67,13 @@ let running = null; // current batch
 let lookupTimer = null;
 let mockLeftovers = 642 * MB; // installers left in %TEMP%\WinGet…
 
+// ?repeated=1: Xodo's update already failed 3 times (history).
+if (params.get('repeated')) {
+  dataset = dataset.map((i) => (i.key === 'winget:Xodo.PDFStudio'
+    ? { ...i, assessment: { ...i.assessment, preselect: false, reasons: [...i.assessment.reasons, { type: 'repeated_failures', count: 3 }] } }
+    : i));
+}
+
 if (SCENARIO === 'empty') {
   dataset = dataset.map((i) => (i.kind === 'update' || i.kind === 'manual')
     ? { ...i, kind: 'up_to_date', availableVersion: null, versionCertainty: 'exact', installedVersion: i.availableVersion || i.installedVersion, assessment: { priority: 'normal', preselect: false, reasons: [] }, running: [] }
@@ -438,7 +445,8 @@ async function runBatch(jobs, closeApps, allowElevation) {
     if (state.type === 'failed') batch.failed += 1;
     if (state.rebootRequired) batch.rebootRequired = true;
     emit('job-progress', jobEvent(job.key, state, { progress: state.type === 'succeeded' ? 1 : null }));
-    batch.results.push({ key: job.key, state });
+    // ?repeated=1: this version already failed twice before.
+    batch.results.push({ key: job.key, state, ...(state.type === 'failed' && params.get('repeated') ? { failedAttempts: 3 } : {}) });
     history.unshift({
       date: new Date().toISOString(), key: job.key, source: job.source, id: job.id, name: job.name,
       action: job.action || { type: 'upgrade' }, fromVersion: job.fromVersion ?? null, toVersion: job.toVersion ?? null,
