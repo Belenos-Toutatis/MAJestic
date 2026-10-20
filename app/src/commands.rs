@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use majestic_core::eta::EtaModel;
+use majestic_core::intel::about::{self, About, AboutRequest};
 use majestic_core::model::*;
 use majestic_core::settings::Settings;
 use majestic_core::system::{elevation, icons, procs, registry, shell};
@@ -136,6 +137,19 @@ fn schedule_status_now() -> Result<ScheduleStatus, String> {
         next_run,
         last_check: scheduler::load_last_check(),
     })
+}
+
+/// What a program does, for the details panel (`null` when nobody says).
+/// Online catalogs only with "online sources" on, and for programs no
+/// package manager knows, only with "look up unmanaged programs" on too.
+#[tauri::command]
+pub async fn describe_item(request: AboutRequest) -> Result<Option<About>, String> {
+    blocking(move || {
+        let s = Settings::load();
+        let online = s.online_intel && (request.source != Some(Source::Registry) || s.lookup_unmanaged);
+        about::about(&request, &paths::cache_dir(), online)
+    })
+    .await
 }
 
 #[tauri::command]

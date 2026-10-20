@@ -7,6 +7,7 @@
 //! never sent anywhere. Per-package requests (winget-pkgs manifests,
 //! Chocolatey/GitHub lookups) only carry one package name or id each.
 
+pub mod about;
 pub mod assess;
 pub mod exposure;
 pub mod http;

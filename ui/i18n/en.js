@@ -602,6 +602,18 @@ export default {
     links: "Links",
     linksTip: "Official pages of the software, opened in your browser.",
     tech: "Technical information",
+    about: {
+      title: "What this program does",
+      tip: "Description from the catalog that knows this program (winget, Chocolatey or Scoop), in your language when one is published, otherwise in English.",
+      loading: "Looking for a description…",
+      none: "No description found for this program.",
+      from: {
+        winget: "From the winget catalog.",
+        chocolatey: "From the Chocolatey catalog.",
+        scoop: "From Scoop.",
+      },
+      foreign: "Text in another language: no English version.",
+    },
     techTip: "Details for advanced users or troubleshooting.",
     source: "Source",
     id: "Identifier",

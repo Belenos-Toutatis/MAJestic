@@ -512,6 +512,10 @@ button.strip-seg:hover { background: var(--surface-hover); }
 .action-card.stacked { align-items: flex-start; }
 .action-stack { margin-top: 8px; margin-left: -8px; }
 .d-section > .btn { align-self: flex-start; }
+.about-loading { display: flex; align-items: center; gap: 8px; margin: 0; }
+.about-text { display: grid; gap: 6px; }
+.about-text p { margin: 0; overflow-wrap: anywhere; }
+.about-lead { line-height: 1.5; }
 .action-ic { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: var(--r-m); background: var(--surface-3); color: var(--text-2); }
 .action-ic svg { width: 18px; height: 18px; }
 .action-card.tone-accent .action-ic { background: var(--accent-soft); color: var(--accent-text); }

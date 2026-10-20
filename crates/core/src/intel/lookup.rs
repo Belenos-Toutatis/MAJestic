@@ -142,18 +142,38 @@ struct KnownRepo {
     name_prefix: &'static str,
     owner: &'static str,
     repo: &'static str,
+    /// What it does, for the details panel (no catalog describes it).
+    about_fr: &'static str,
+    about_en: &'static str,
 }
 
 /// Euro-Office, a fork of ONLYOFFICE, kept ONLYOFFICE's publisher and links
 /// in the registry (onlyoffice.com): its releases are on GitHub.
-const KNOWN_REPOS: &[KnownRepo] = &[KnownRepo { name_prefix: "euro-office", owner: "Euro-Office", repo: "DesktopEditors" }];
+const KNOWN_REPOS: &[KnownRepo] = &[KnownRepo {
+    name_prefix: "euro-office",
+    owner: "Euro-Office",
+    repo: "DesktopEditors",
+    about_fr: "Suite bureautique libre, projet européen dérivé d’ONLYOFFICE : traitement de texte, tableur et \
+               présentations, compatibles avec les formats de Microsoft Office.",
+    about_en: "Free office suite, a European project derived from ONLYOFFICE: word processor, spreadsheet and \
+               presentations, compatible with Microsoft Office formats.",
+}];
+
+fn known_repo(display_name: &str) -> Option<&'static KnownRepo> {
+    let name = display_name.trim().to_lowercase();
+    KNOWN_REPOS.iter().find(|k| name.starts_with(k.name_prefix))
+}
+
+/// What a program of [`KNOWN_REPOS`] does, in French or English.
+pub fn known_about(display_name: &str, french: bool) -> Option<&'static str> {
+    known_repo(display_name).map(|k| if french { k.about_fr } else { k.about_en })
+}
 
 /// Links of a program listed in [`KNOWN_REPOS`], to use instead of the
 /// registry ones: its GitHub repository, latest release and issues. They
 /// also make [`latest_elsewhere`] look up its GitHub releases.
 pub fn known_links(display_name: &str) -> Option<Links> {
-    let name = display_name.trim().to_lowercase();
-    let known = KNOWN_REPOS.iter().find(|k| name.starts_with(k.name_prefix))?;
+    let known = known_repo(display_name)?;
     let repo = format!("https://github.com/{}/{}", known.owner, known.repo);
     Some(Links {
         homepage: Some(repo.clone()),
@@ -305,6 +325,8 @@ struct ChocoPackage {
     title: String,
     version: String,
     project_url: Option<String>,
+    summary: Option<String>,
+    description: Option<String>,
 }
 
 fn chocolatey_search(term: &str) -> anyhow::Result<Vec<ChocoPackage>> {
@@ -324,6 +346,8 @@ enum ChocoField {
     Title,
     Version,
     ProjectUrl,
+    Summary,
+    Description,
 }
 
 /// Parses an OData v2 Atom feed (`<entry>`, `<m:properties>` with
@@ -337,6 +361,8 @@ fn parse_chocolatey_feed(xml: &str) -> Vec<ChocoPackage> {
         title: String,
         version: String,
         project_url: String,
+        summary: String,
+        description: String,
     }
 
     let mut reader = Reader::from_str(xml);
@@ -362,6 +388,8 @@ fn parse_chocolatey_feed(xml: &str) -> Vec<ChocoPackage> {
                             (b"Title", true) => Some(ChocoField::Title),
                             (b"Version", true) => Some(ChocoField::Version),
                             (b"ProjectUrl", true) => Some(ChocoField::ProjectUrl),
+                            (b"Summary", true) => Some(ChocoField::Summary),
+                            (b"Description", true) => Some(ChocoField::Description),
                             _ => None,
                         };
                         text.clear();
@@ -405,6 +433,8 @@ fn parse_chocolatey_feed(xml: &str) -> Vec<ChocoPackage> {
                                     id,
                                     version: p.version,
                                     project_url: (!p.project_url.is_empty()).then_some(p.project_url),
+                                    summary: (!p.summary.is_empty()).then_some(p.summary),
+                                    description: (!p.description.is_empty()).then_some(p.description),
                                 });
                             }
                         }
@@ -420,6 +450,8 @@ fn parse_chocolatey_feed(xml: &str) -> Vec<ChocoPackage> {
                                 ChocoField::Title => p.title = value,
                                 ChocoField::Version => p.version = value,
                                 ChocoField::ProjectUrl => p.project_url = value,
+                                ChocoField::Summary => p.summary = value,
+                                ChocoField::Description => p.description = value,
                             }
                         }
                     }
@@ -463,6 +495,51 @@ fn pick_chocolatey(packages: &[ChocoPackage], wanted: &str, publisher: Option<&s
         .map(|p| (strip_package_fix(&p.version), p.id.clone()))
         .filter(|(v, _)| Version::parse(v).is_some())
         .max_by(|(va, ia), (vb, ib)| version::compare(va, vb).then_with(|| ib.len().cmp(&ia.len())))
+}
+
+/// Summary and description of a Chocolatey package, with its page.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ChocoAbout {
+    pub summary: Option<String>,
+    pub description: Option<String>,
+    pub url: String,
+}
+
+/// [`ChocoAbout`] of the package `id`, or, without an id, of the package
+/// whose title is confidently the program `name` (as [`latest_elsewhere`]).
+/// One request carrying that id or name.
+pub fn chocolatey_about(id: Option<&str>, name: &str, publisher: Option<&str>) -> Option<ChocoAbout> {
+    if CHOCOLATEY.is_open() {
+        return None;
+    }
+    let term = id.map(str::to_string).unwrap_or_else(|| search_term(name));
+    let packages = match chocolatey_search(&term) {
+        Ok(packages) => {
+            CHOCOLATEY.success();
+            packages
+        }
+        Err(err) => {
+            CHOCOLATEY.failure();
+            log::debug!("Chocolatey about failed: {err:#}");
+            return None;
+        }
+    };
+    let package = match id {
+        Some(id) => packages.iter().find(|p| p.id.eq_ignore_ascii_case(id))?,
+        None => {
+            let wanted = normalize_title(name, publisher);
+            if wanted.chars().filter(|c| c.is_alphanumeric()).count() < 3 {
+                return None;
+            }
+            let (_, id) = pick_chocolatey(&packages, &wanted, publisher)?;
+            packages.iter().find(|p| p.id == id)?
+        }
+    };
+    (package.summary.is_some() || package.description.is_some()).then(|| ChocoAbout {
+        summary: package.summary.clone(),
+        description: package.description.clone(),
+        url: format!("{CHOCOLATEY_PACKAGE_PAGE}{}", encode(&package.id)),
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -666,6 +743,7 @@ mod tests {
     <m:properties>
       <d:Version>3.7.9</d:Version>
       <d:Title>Audacity</d:Title>
+      <d:Summary>Free, open source, cross-platform audio software</d:Summary>
       <d:Description>Audacity &amp; friends</d:Description>
       <d:ProjectUrl>https://audacityteam.org/</d:ProjectUrl>
     </m:properties>
@@ -704,6 +782,8 @@ mod tests {
                 title: "Audacity".into(),
                 version: "3.7.9".into(),
                 project_url: Some("https://audacityteam.org/".into()),
+                summary: Some("Free, open source, cross-platform audio software".into()),
+                description: Some("Audacity & friends".into()),
             }
         );
         assert_eq!(packages[1].id, "audacity-lame");
@@ -759,10 +839,10 @@ mod tests {
                 id: "7zip.install".into(),
                 title: "7-Zip (Install)".into(),
                 version: "24.9.0".into(),
-                project_url: None,
+                ..Default::default()
             },
-            ChocoPackage { id: "7zip".into(), title: "7-Zip".into(), version: "24.9.0".into(), project_url: None },
-            ChocoPackage { id: "7zip.old".into(), title: "7-Zip".into(), version: "9.20".into(), project_url: None },
+            ChocoPackage { id: "7zip".into(), title: "7-Zip".into(), version: "24.9.0".into(), ..Default::default() },
+            ChocoPackage { id: "7zip.old".into(), title: "7-Zip".into(), version: "9.20".into(), ..Default::default() },
         ];
         assert_eq!(pick_chocolatey(&twins, "7 zip", None), Some(("24.9.0".to_string(), "7zip".to_string())));
     }

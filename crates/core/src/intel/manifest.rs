@@ -17,6 +17,7 @@ use crate::model::Scope;
 
 const RAW_BASE: &str = "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests";
 const MAX_RELEASE_NOTES: usize = 2000;
+const MAX_DESCRIPTION: usize = 1200;
 const DEFAULT_LOCALE: &str = "en-US";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -29,7 +30,40 @@ pub struct ManifestMeta {
     pub release_notes_url: Option<String>,
     pub license: Option<String>,
     pub short_description: Option<String>,
+    /// Longer description, plain text.
+    pub description: Option<String>,
     pub tags: Vec<String>,
+}
+
+/// What a package does, in one locale of its manifest.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct About {
+    /// `en-US`, `fr-FR`…
+    pub locale: String,
+    pub summary: Option<String>,
+    pub description: Option<String>,
+}
+
+/// [`About`] of `id` at `version`: the `prefer` locale (`fr-FR`) when the
+/// manifest has it with a description, otherwise the default locale.
+pub fn fetch_about(id: &str, version: &str, cache_dir: &Path, prefer: Option<&str>) -> anyhow::Result<About> {
+    let version_manifest = fetch_file(id, version, &format!("{id}.yaml"), cache_dir)?;
+    if is_singleton(&version_manifest) {
+        let locale: LocaleManifest = parse_yaml(&version_manifest)?;
+        return Ok(locale.into_about(DEFAULT_LOCALE));
+    }
+    let header: VersionManifest = parse_yaml(&version_manifest)?;
+    let default = header.default_locale.filter(|l| is_safe_segment(l)).unwrap_or_else(|| DEFAULT_LOCALE.to_string());
+    if let Some(prefer) = prefer.filter(|p| is_safe_segment(p) && !p.eq_ignore_ascii_case(&default)) {
+        if let Some(text) = fetch_optional_file(id, version, &format!("{id}.locale.{prefer}.yaml"), cache_dir)? {
+            let about = parse_yaml::<LocaleManifest>(&text)?.into_about(prefer);
+            if about.summary.is_some() || about.description.is_some() {
+                return Ok(about);
+            }
+        }
+    }
+    let text = fetch_file(id, version, &format!("{id}.locale.{default}.yaml"), cache_dir)?;
+    Ok(parse_yaml::<LocaleManifest>(&text)?.into_about(&default))
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -184,6 +218,26 @@ fn fetch_file(id: &str, version: &str, file: &str, cache_dir: &Path) -> anyhow::
     Ok(text)
 }
 
+/// [`fetch_file`] for a file that may not exist (a translation): `None` when
+/// GitHub answers 404, remembered with an empty `.absent` file since
+/// published manifests never change.
+fn fetch_optional_file(id: &str, version: &str, file: &str, cache_dir: &Path) -> anyhow::Result<Option<String>> {
+    let absent = cache_path(cache_dir, id, version, &format!("{file}.absent"));
+    if absent.exists() {
+        return Ok(None);
+    }
+    match fetch_file(id, version, file, cache_dir) {
+        Ok(text) => Ok(Some(text)),
+        Err(err) if http::error_status(&err) == Some(404) => {
+            if let Err(e) = write_atomically(&absent, "") {
+                log::debug!("cannot cache {}: {e:#}", absent.display());
+            }
+            Ok(None)
+        }
+        Err(err) => Err(err),
+    }
+}
+
 fn write_atomically(path: &Path, text: &str) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -274,15 +328,34 @@ struct LocaleManifest {
     license: Option<String>,
     #[serde(deserialize_with = "lenient_string")]
     short_description: Option<String>,
+    #[serde(deserialize_with = "lenient_string")]
+    description: Option<String>,
     #[serde(deserialize_with = "lenient_strings")]
     tags: Vec<String>,
     #[serde(deserialize_with = "lenient_string")]
     release_notes: Option<String>,
     #[serde(deserialize_with = "lenient_string")]
     release_notes_url: Option<String>,
+    #[serde(deserialize_with = "lenient_string")]
+    package_locale: Option<String>,
 }
 
 impl LocaleManifest {
+    /// `locale`: the one asked for, unless the manifest names its own.
+    fn into_about(self, locale: &str) -> About {
+        let summary = self.short_description.map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "));
+        let description = self
+            .description
+            .as_deref()
+            .and_then(|d| clean_text(d, MAX_DESCRIPTION))
+            .filter(|d| summary.as_deref() != Some(d.as_str()));
+        About {
+            locale: self.package_locale.filter(|l| is_safe_segment(l)).unwrap_or_else(|| locale.to_string()),
+            summary,
+            description,
+        }
+    }
+
     fn into_meta(self) -> ManifestMeta {
         ManifestMeta {
             publisher: self.publisher,
@@ -293,6 +366,7 @@ impl LocaleManifest {
             release_notes_url: self.release_notes_url.filter(|u| is_web_url(u)),
             license: self.license,
             short_description: self.short_description,
+            description: self.description.as_deref().and_then(|d| clean_text(d, MAX_DESCRIPTION)),
             tags: self.tags,
         }
     }
@@ -426,6 +500,11 @@ fn strip_html(text: &str) -> String {
 
 /// Plain text, trimmed, blank lines collapsed, at most 2000 characters.
 fn clean_release_notes(raw: &str) -> Option<String> {
+    clean_text(raw, MAX_RELEASE_NOTES)
+}
+
+/// Plain text, trimmed, blank lines collapsed, at most `max` characters.
+pub(crate) fn clean_text(raw: &str, max: usize) -> Option<String> {
     let mut text = raw.replace("\r\n", "\n").replace('\r', "\n");
     if HTML_TAG.is_match(&text) {
         text = strip_html(&text);
@@ -441,7 +520,7 @@ fn clean_release_notes(raw: &str) -> Option<String> {
     if text.is_empty() {
         return None;
     }
-    Some(truncate_chars(&text, MAX_RELEASE_NOTES))
+    Some(truncate_chars(&text, max))
 }
 
 /// At most `max` characters, cut at a word boundary when possible, with `…`.

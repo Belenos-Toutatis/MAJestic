@@ -58,6 +58,8 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
   (sécurité, pilotes, antivirus Defender) et signale un redémarrage nécessaire,
   avec un bouton qui ouvre Windows Update et lance la recherche. C'est Windows qui
   les installe, comme d'habitude.
+- **Ce que fait chaque logiciel** : son panneau affiche un descriptif (catalogue
+  winget en français quand il existe, sinon en anglais ; Chocolatey ; Scoop).
 - **Désinstaller proprement** : le panneau de chaque logiciel propose la bonne
   méthode (winget, Chocolatey ou Scoop quand ils l'ont installé, sinon le
   désinstalleur du logiciel lui-même), plus les écrans de Windows « Applications
@@ -150,8 +152,8 @@ Pour vous conseiller, il consulte des sources publiques :
 | Service | Pourquoi | Ce que contient la requête |
 |---|---|---|
 | `www.cisa.gov` | Catalogue des failles activement exploitées (KEV) | Rien sur vos logiciels : le catalogue entier est téléchargé |
-| `raw.githubusercontent.com`, `api.github.com` | Manifestes winget (notes de version, installateur) ; dernières versions publiées sur GitHub | L'identifiant d'**un seul** logiciel |
-| `community.chocolatey.org` | Catalogue Chocolatey, pour les logiciels qu'aucun gestionnaire ne suit | Le nom d'**un seul** logiciel |
+| `raw.githubusercontent.com`, `api.github.com` | Manifestes winget (notes de version, installateur, descriptif) ; dernières versions publiées sur GitHub | L'identifiant d'**un seul** logiciel |
+| `community.chocolatey.org` | Catalogue Chocolatey, pour les logiciels qu'aucun gestionnaire ne suit (version, descriptif) | Le nom d'**un seul** logiciel |
 | Serveur de l'éditeur | Taille de l'installateur, pour estimer le temps restant (requête `HEAD`, sans téléchargement) | L'adresse officielle de l'installateur, lue dans le manifeste winget |
 | `api.github.com`, `github.com` | Savoir s'il existe une nouvelle version de MAJestic, et la télécharger si vous le demandez | Rien sur vos logiciels |
 | Service Windows Update (Windows lui-même) | Savoir quelles mises à jour de Windows sont en attente | MAJestic ne contacte rien : c'est le service Windows Update qui interroge Microsoft, comme lors d'une recherche dans les Paramètres |
@@ -248,8 +250,8 @@ To advise you, it reads public sources:
 | Service | Why | What the request contains |
 |---|---|---|
 | `www.cisa.gov` | Catalog of actively exploited vulnerabilities (KEV) | Nothing about your software: the whole catalog is downloaded |
-| `raw.githubusercontent.com`, `api.github.com` | winget manifests (release notes, installer); latest releases published on GitHub | The identifier of **one** program |
-| `community.chocolatey.org` | Chocolatey catalog, for programs no package manager tracks | The name of **one** program |
+| `raw.githubusercontent.com`, `api.github.com` | winget manifests (release notes, installer, description); latest releases published on GitHub | The identifier of **one** program |
+| `community.chocolatey.org` | Chocolatey catalog, for programs no package manager tracks (version, description) | The name of **one** program |
 | Publisher's server | Installer size, to estimate the time remaining (`HEAD` request, nothing is downloaded) | The official installer address, read from the winget manifest |
 | `api.github.com`, `github.com` | Whether a new version of MAJestic exists, and downloading it when you ask | Nothing about your software |
 | Windows Update service (Windows itself) | Which Windows updates are waiting | MAJestic contacts nothing: the Windows Update service asks Microsoft, as when you search in Settings |

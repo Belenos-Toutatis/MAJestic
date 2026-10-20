@@ -100,13 +100,29 @@ impl Launcher {
     }
 }
 
-/// Finds Scoop in `%SCOOP%`, else `%USERPROFILE%\scoop`.
+/// Scoop's folder: `%SCOOP%`, else `%USERPROFILE%\scoop`.
+fn root() -> Option<PathBuf> {
+    match env::var_os("SCOOP").filter(|dir| !dir.is_empty()) {
+        Some(dir) => Some(PathBuf::from(dir)),
+        None => Some(PathBuf::from(env::var_os("USERPROFILE")?).join("scoop")),
+    }
+}
+
 fn launcher() -> Option<Launcher> {
-    let root = match env::var_os("SCOOP").filter(|dir| !dir.is_empty()) {
-        Some(dir) => PathBuf::from(dir),
-        None => PathBuf::from(env::var_os("USERPROFILE")?).join("scoop"),
-    };
-    find_launcher(&root)
+    find_launcher(&root()?)
+}
+
+/// The `description` of an installed app, from its local manifest
+/// (`apps\<app>\current\manifest.json`): no network.
+pub fn description(app: &str) -> Option<String> {
+    let safe = !app.is_empty() && app.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    if !safe || app.starts_with('.') {
+        return None;
+    }
+    let path = root()?.join("apps").join(app).join("current").join("manifest.json");
+    let json: serde_json::Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
+    let text = json.get("description")?.as_str()?.trim();
+    (!text.is_empty()).then(|| text.to_string())
 }
 
 fn find_launcher(root: &std::path::Path) -> Option<Launcher> {

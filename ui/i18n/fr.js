@@ -602,6 +602,18 @@ export default {
     links: "Liens",
     linksTip: "Pages officielles du logiciel, ouvertes dans votre navigateur.",
     tech: "Informations techniques",
+    about: {
+      title: "Ce que fait ce logiciel",
+      tip: "Description fournie par le catalogue qui connaît ce logiciel (winget, Chocolatey ou Scoop). MAJestic la prend en français quand elle existe, sinon en anglais.",
+      loading: "Recherche d’un descriptif…",
+      none: "Aucun descriptif trouvé pour ce logiciel.",
+      from: {
+        winget: "D’après le catalogue winget.",
+        chocolatey: "D’après le catalogue Chocolatey.",
+        scoop: "D’après Scoop.",
+      },
+      foreign: "Texte en anglais : pas de version française.",
+    },
     techTip: "Détails utiles pour les utilisateurs avancés ou pour un diagnostic.",
     source: "Source",
     id: "Identifiant",

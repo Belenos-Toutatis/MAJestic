@@ -75,6 +75,7 @@ fn main() {
             commands::run_uninstaller,
             commands::open_installed_apps,
             commands::schedule_status,
+            commands::describe_item,
             commands::set_schedule,
             appupdate::check_app_update,
             appupdate::install_app_update,

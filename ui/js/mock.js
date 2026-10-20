@@ -576,6 +576,18 @@ const handlers = {
     console.info('[mock] open_windows_update', page);
     return null;
   },
+  async describe_item({ request }) {
+    await sleep(500 / SPEED);
+    const known = {
+      'Mozilla Firefox': { summary: 'Mozilla Firefox est un logiciel libre et ouvert, réalisé par une communauté de milliers de contributeurs dans le monde.', locale: 'fr-FR', origin: 'winget' },
+      '7-Zip': { summary: 'A file archiver with a high compression ratio.', locale: 'en-US', origin: 'winget' },
+      'VLC media player': { summary: 'VLC is a free and open source cross-platform multimedia player.', description: 'It plays most multimedia files as well as DVDs, Audio CDs, VCDs, and various streaming protocols.', locale: 'en-US', origin: 'winget' },
+      'Notepad++': { summary: 'Notepad++ is a free source code editor and Notepad replacement that supports several languages.', locale: 'en-US', origin: 'winget' },
+      'HandBrake': { description: 'HandBrake is a tool for converting video from nearly any format to a selection of modern, widely supported codecs.', locale: 'en-US', origin: 'chocolatey', url: 'https://community.chocolatey.org/packages/handbrake' },
+    };
+    const found = known[request?.name];
+    return found ? { summary: null, description: null, url: null, ...found } : null;
+  },
   // ?appUpdate=1 offers a newer MAJestic; ?appUpdate=fail makes its install
   // fail; ?appUpdate=error makes the check itself fail.
   async check_app_update() {

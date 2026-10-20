@@ -3,7 +3,8 @@
 
 import { h, clear, animateOut } from '../dom.js';
 import { icon } from '../icons.js';
-import { t, fmt } from '../i18n.js';
+import { t, fmt, getLanguage } from '../i18n.js';
+import { invoke } from '../api.js';
 import { state, itemByKey, runActive } from '../state.js';
 import {
   kindOf, priorityOf, describeReason, reasonsOf, alternativesOf, runningOf, installedVersionInfo,
@@ -13,7 +14,7 @@ import {
   startJobs, ignoreItem, unignore, openUrl, openStoreUpdates, webSearchUrl, uninstallItem, runUninstaller, openInstalledApps,
 } from '../actions.js';
 import { avatar } from '../components/avatar.js';
-import { button, iconButton, badge, infoDot } from '../components/widgets.js';
+import { button, iconButton, badge, infoDot, spinner } from '../components/widgets.js';
 import { chooseVersion, searchWinget } from '../components/versions.js';
 import { hide as hideTooltip } from '../components/tooltip.js';
 
@@ -107,6 +108,7 @@ function render(item) {
     iconButton({ icon: 'close', label: t('common.close'), tip: [t('common.close'), t('details.closeTip')], cls: 'drawer-close', onClick: () => closeDetails() })));
 
   body.append(versionCard(item, kind));
+  body.append(aboutSection(item));
   body.append(statusSection(item, kind));
 
   const reasons = reasonsOf(item);
@@ -148,6 +150,50 @@ function render(item) {
 
   body.append(section(t('details.tech'), [t('details.tech'), t('details.techTip')], techInfo(item)));
   drawerEl.append(body);
+}
+
+// ------------------------------------------------------------------ what it does
+
+const aboutCache = new Map(); // item key → { loading: true } | { about }
+
+function aboutSection(item) {
+  const entry = aboutCache.get(item.key);
+  if (!entry) loadAbout(item);
+  const about = entry?.about;
+  let content;
+  if (!entry || entry.loading) {
+    content = h('p', { class: 'muted about-loading' }, spinner(true), t('details.about.loading'));
+  } else if (!about) {
+    content = h('p', { class: 'muted' }, t('details.about.none'));
+  } else {
+    const paragraphs = [about.summary, ...String(about.description || '').split(/\n{2,}/)].map((p) => (p || '').trim()).filter(Boolean);
+    const foreign = !String(about.locale || '').toLowerCase().startsWith(getLanguage());
+    content = h('div', { class: 'about-text' },
+      paragraphs.map((p, i) => h('p', { class: i === 0 ? 'about-lead' : 'muted' }, p)),
+      about.origin === 'majestic' ? null
+        : h('p', { class: 'caption subtle' }, t(`details.about.from.${about.origin}`), foreign ? ` ${t('details.about.foreign')}` : ''));
+  }
+  return h('section', { class: 'd-section d-about', 'data-about': item.key },
+    h('h3', { class: 'd-title' }, t('details.about.title'), infoDot(t('details.about.title'), t('details.about.tip'))),
+    content);
+}
+
+function loadAbout(item) {
+  aboutCache.set(item.key, { loading: true });
+  const request = {
+    source: item.source, id: item.id, name: item.name, publisher: item.publisher || null,
+    versions: [item.availableVersion, item.installedVersion].filter(Boolean),
+    lang: getLanguage(),
+  };
+  invoke('describe_item', { request })
+    .then((about) => aboutCache.set(item.key, { about: about || null }))
+    .catch((e) => { console.warn('[about]', e); aboutCache.set(item.key, { about: null }); })
+    .finally(() => {
+      // Replace only this section: re-rendering the drawer would lose the focus.
+      const old = drawerEl?.querySelector(`[data-about="${CSS.escape(item.key)}"]`);
+      const current = itemByKey(item.key);
+      if (old && current) old.replaceWith(aboutSection(current));
+    });
 }
 
 function versionCard(item, kind) {
