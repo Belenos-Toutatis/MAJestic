@@ -59,9 +59,11 @@ export function mountSummary(container) {
 
   const onlyUpgrades = entries.every((e) => (e.job.action?.type || 'upgrade') === 'upgrade');
   const onlyUninstalls = entries.every((e) => e.job.action?.type === 'uninstall');
+  const onlyInstalls = entries.every((e) => e.job.action?.type === 'install');
   const okLabel = (count) => t(onlyUninstalls ? 'summary.uninstalledCount' : 'summary.okCount', { count });
   let title;
   if (allGood && onlyUninstalls) title = t('summary.allGoodUninstall', { count: ok.length });
+  else if (allGood && onlyInstalls) title = t('summary.allGoodInstall', { count: ok.length });
   else if (allGood) title = onlyUpgrades ? t('summary.allGood', { count: ok.length }) : t('summary.allGoodOther', { count: ok.length });
   else if (!ok.length && failed.length && !skipped.length) title = t('summary.allFailed', { count: failed.length });
   else if (!ok.length && !failed.length) title = t('summary.nothingDone');
@@ -81,6 +83,7 @@ export function mountSummary(container) {
     h('span', { class: 'pg-chip', tabindex: 0, tip: [t('summary.durationTitle'), t('summary.durationTip')] }, icon('clock'), fmt.duration(duration)));
 
   const lead = allGood && onlyUninstalls ? t('summary.allGoodUninstallText', { count: ok.length })
+    : allGood && onlyInstalls ? t('summary.allGoodInstallText', { count: ok.length })
     : allGood ? (onlyUpgrades ? t('summary.allGoodText') : t('summary.allGoodOtherText'))
       : failed.length ? t('summary.failText') : t('summary.neutralText');
   const hero = h('section', { class: ['sum-hero', allGood && !onlyUninstalls ? 'is-celebrating' : null] },
@@ -124,7 +127,7 @@ export function mountSummary(container) {
 
   if (ok.length) {
     body.append(h('details', { class: 'sum-section sum-fold', open: !failed.length && ok.length <= 6 },
-      h('summary', { tip: [t('summary.okListTitle'), t('summary.okListTip')] }, icon('chevron-right'), h('h2', null, t(onlyUninstalls ? 'summary.uninstalledList' : 'summary.okList', { count: ok.length }))),
+      h('summary', { tip: [t('summary.okListTitle'), t('summary.okListTip')] }, icon('chevron-right'), h('h2', null, t(onlyUninstalls ? 'summary.uninstalledList' : onlyInstalls ? 'summary.installedList' : 'summary.okList', { count: ok.length }))),
       h('ul', { class: 'ok-list' }, ok.map((e) => {
         const item = itemByKey(e.job.key) || { name: e.job.name, key: e.job.key };
         const secs = e.startedAt && e.finishedAt ? (e.finishedAt - e.startedAt) / 1000 : null;
@@ -134,6 +137,7 @@ export function mountSummary(container) {
           h('span', { class: 'strong ellipsis grow' }, e.job.name),
           h('span', { class: 'caption subtle ver' }, e.job.action?.type === 'uninstall'
             ? t('uninstall.done')
+            : e.job.action?.type === 'install' ? t('summary.newOnPc')
             : e.job.fromVersion || e.job.toVersion ? `${e.job.fromVersion || t('version.unknown')} → ${e.job.toVersion || '?'}` : ''),
           e.state.rebootRequired ? badge({ text: t('summary.rebootBadge'), tone: 'gold', icon: 'restart', tip: [t('summary.rebootTitle'), t('summary.rebootBadgeTip')] }) : null,
           secs ? h('span', { class: 'caption subtle num', tip: [t('summary.itemDurationTitle'), t('summary.itemDurationTip')] }, fmt.duration(secs)) : null);

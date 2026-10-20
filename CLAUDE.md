@@ -46,6 +46,7 @@ cargo run -p majestic-core --example scan -- --json      # analyse complète (--
 cargo run -p majestic-core --example job -- <source> <id> [version] [--from V --to V]
 cargo run -p majestic-core --example stream -- winget download --id X -d C:\tmp
 cargo run -p majestic-core --example selfupdate -- <copie\MAJestic.exe> 0.1.0   # auto-MAJ sans fenêtre
+cargo run -p majestic-core --example inventory -- [--save f.json] [--plan f.json] # liste des logiciels, sans fenêtre
 cargo run -p majestic-core --example wupdate -- [--online] [--open]          # mises à jour Windows en attente
 python -m http.server -d ui            # interface dans un navigateur, backend simulé (.claude/launch.json : « ui-mock », sans cache)
 ```
@@ -149,6 +150,13 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   Ses étiquettes portent une révision (`v9.3.5-2` = 9.3.5.0 installé), lue comme
   « avant 9.3.5 » : pas de fausse alerte. FileZilla n'a pas de fiche winget et son
   site refuse les robots (403) : sa version est vérifiée via Chocolatey.
+- **Liste des logiciels** (`inventory.rs`, Paramètres › Liste de vos logiciels) : JSON
+  `majestic-inventory` v1 (paquets winget, Store, Chocolatey via `choco list -r`, Scoop
+  via `apps\`, plus les autres applications en `manual` avec leur lien). Import :
+  comparaison avec la dernière analyse, puis `JobAction::Install` (`winget install`,
+  `choco install`, `scoop install`). Fenêtres « Enregistrer sous » / « Ouvrir » natives
+  (`system/filedialog.rs`, thread COM dédié ; test `dialogs_open_and_cancel` ignoré
+  par défaut : il affiche les fenêtres un instant).
 - **Échecs répétés** : `history::failure_counts` compte les échecs par (paquet,
   version) depuis le dernier succès du paquet. À partir de 3 (`FAILURE_LIMIT`),
   l'analyse ajoute la raison `repeated_failures` et ne coche plus la mise à jour ; à la

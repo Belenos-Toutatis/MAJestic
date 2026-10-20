@@ -9,6 +9,7 @@ import { saveSettings, unignore, openLogs } from '../actions.js';
 import { toggle, segmented, select, button, infoDot, iconButton, badge, banner, spinner } from '../components/widgets.js';
 import { toast } from '../components/toast.js';
 import { checkAppUpdate, appUpdateChecking, openAppUpdate } from '../appupdate.js';
+import { exportInventory, importInventory, revealExport } from '../components/inventory.js';
 
 export function mountSettings(container) {
   const view = h('div', { class: 'view settings-view' });
@@ -29,6 +30,8 @@ export function mountSettings(container) {
   let leftovers = null;     // leftover_downloads (null while measuring)
   let cleaning = false;
   let leftoverRowEl = null;
+  let exportRowEl = null;
+  let lastExport = null;    // { path, packages, manual } of the last export here
 
   function row({ ic, title, desc, control, info, id, disabled }) {
     return h('div', { class: ['set-row', disabled ? 'is-disabled' : null] },
@@ -117,6 +120,18 @@ export function mountSettings(container) {
       }),
       (leftoverRowEl = leftoverRow())));
 
+    // List of programs: export it, or import one from another PC.
+    body.append(group(t('inventory.group'),
+      (exportRowEl = exportRow()),
+      row({
+        ic: 'download', title: t('inventory.importRow'), desc: t('inventory.importDesc'),
+        control: button({
+          label: t('inventory.importBtn'), icon: 'download', size: 'small', disabled: !scanned(),
+          tip: [t('inventory.importBtn'), scanned() ? t('inventory.importTip') : t('inventory.noScan')],
+          onClick: importInventory,
+        }),
+      })));
+
     // Schedule: summary of what is set, then an explicit button.
     schedHost = h('section', { class: 'set-group sched-group' });
     body.append(schedHost);
@@ -161,6 +176,35 @@ export function mountSettings(container) {
         ic: 'notes', title: t('settings.logs'), desc: t('settings.logsDesc'),
         control: button({ label: t('common.openLogs'), icon: 'folder', size: 'small', tip: [t('common.openLogs'), t('common.openLogsTip')], onClick: openLogs }),
       })));
+  }
+
+  // ---------------------------------------------------------------- list of programs
+
+  const scanned = () => Array.isArray(state.items) && state.items.length > 0;
+
+  function exportRow() {
+    const ok = scanned();
+    return row({
+      ic: 'file', title: t('inventory.exportRow'),
+      desc: lastExport ? t('inventory.lastExport', { path: lastExport.path }) : t('inventory.exportDesc'),
+      info: [t('inventory.group'), t('inventory.info')],
+      control: h('div', { class: 'row-flex' },
+        lastExport ? button({ label: t('inventory.reveal'), icon: 'folder', size: 'small', variant: 'subtle', tip: [t('inventory.reveal'), lastExport.path], onClick: revealExport }) : null,
+        button({
+          label: t('inventory.exportBtn'), icon: 'file', size: 'small', disabled: !ok,
+          tip: [t('inventory.exportBtn'), ok ? t('inventory.exportTip') : t('inventory.noScan')],
+          onClick: async () => {
+            const done = await exportInventory();
+            if (!done) return;
+            lastExport = done;
+            if (!exportRowEl?.isConnected) return;
+            const next = exportRow();
+            exportRowEl.replaceWith(next);
+            exportRowEl = next;
+            next.querySelector('.set-control button')?.focus({ preventScroll: true });
+          },
+        })),
+    });
   }
 
   // ---------------------------------------------------------------- leftover installers

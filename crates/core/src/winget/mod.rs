@@ -221,6 +221,9 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
         JobAction::ForceReinstall => {
             push(&["install", "--id", &job.id, "--exact", "--source", source, "--force"]);
         }
+        JobAction::Install => {
+            push(&["install", "--id", &job.id, "--exact", "--source", source]);
+        }
         JobAction::StoreUpdateScan => bail!("the Store update scan is not a winget command"),
         JobAction::Uninstall => {
             // No package agreements for an uninstallation.
@@ -533,6 +536,18 @@ mod tests {
             "upgrade --id Contoso.Sync --exact --source winget --include-unknown --include-pinned \
              --accept-package-agreements --accept-source-agreements --disable-interactivity --silent"
         );
+    }
+
+    #[test]
+    fn install_command() {
+        let spec = build_command(&job(Source::Winget, "Inkscape.Inkscape", JobAction::Install)).unwrap();
+        assert_eq!(
+            args(&spec),
+            "install --id Inkscape.Inkscape --exact --source winget --accept-package-agreements \
+             --accept-source-agreements --disable-interactivity --silent"
+        );
+        let spec = build_command(&job(Source::MsStore, "9NKSQGP7F2NH", JobAction::Install)).unwrap();
+        assert!(args(&spec).starts_with("install --id 9NKSQGP7F2NH --exact --source msstore"));
     }
 
     #[test]

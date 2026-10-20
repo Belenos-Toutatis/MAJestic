@@ -86,7 +86,8 @@ export function mountProgress(container) {
     h('span', { class: 'ring-crown' }, icon('crown')),
     pctEl, countEl));
 
-  const titleEl = h('h1', null, t('progress.title'));
+  const only = (type) => !!run?.jobs?.length && run.jobs.every((j) => j.action?.type === type);
+  const titleEl = h('h1', null, t(only('install') ? 'progress.titleInstall' : only('uninstall') ? 'progress.titleUninstall' : 'progress.title'));
   const currentEl = h('p', { class: 'pg-current', 'aria-live': 'polite' }, t('progress.preparing'));
   const etaEl = h('div', { class: 'pg-eta', tip: [t('progress.etaTitle'), t('progress.etaTip')], tabindex: 0 }, t('eta.computing'));
   const elapsedEl = h('span', { class: 'num' }, fmt.duration(0));

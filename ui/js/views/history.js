@@ -13,7 +13,7 @@ import { toast } from '../components/toast.js';
 import { icon } from '../icons.js';
 
 const RESULT_TONES = { succeeded: 'success', failed: 'danger', cancelled: 'uncertain', skipped: 'uncertain' };
-const ACTIONS = ['install_version', 'force_reinstall', 'interactive', 'store_update_scan', 'uninstall'];
+const ACTIONS = ['install_version', 'force_reinstall', 'interactive', 'store_update_scan', 'uninstall', 'install'];
 const actionKey = (a) => (ACTIONS.includes(a) ? a : 'install_version');
 const focusable = (el) => { el.tabIndex = 0; return el; };
 

@@ -45,6 +45,30 @@ pub fn outdated() -> anyhow::Result<Vec<ChocoRow>> {
     Ok(rows)
 }
 
+/// Packages installed by Chocolatey (`choco list -r`: `id|version`), without
+/// Chocolatey itself and its extensions. Empty when choco is absent.
+pub fn installed() -> Vec<(String, String)> {
+    let Ok(out) = exec::run(PROGRAM, &["list", "-r"], OUTDATED_TIMEOUT) else {
+        return Vec::new();
+    };
+    parse_installed(&out.stdout)
+}
+
+fn parse_installed(output: &str) -> Vec<(String, String)> {
+    output
+        .lines()
+        .filter_map(|line| line.trim().split_once('|'))
+        .map(|(id, v)| (id.trim(), v.trim()))
+        .filter(|(id, v)| {
+            check_id(id).is_ok()
+                && Version::parse(v).is_some()
+                && !id.eq_ignore_ascii_case("chocolatey")
+                && !id.to_ascii_lowercase().ends_with(".extension")
+        })
+        .map(|(id, v)| (id.to_string(), v.to_string()))
+        .collect()
+}
+
 /// Every version of a package in the configured feeds, newest first
 /// (`choco search <id> --exact --all-versions -r`).
 pub fn list_versions(id: &str) -> anyhow::Result<Vec<String>> {
@@ -97,10 +121,11 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
         let args = ["uninstall", &job.id, "-y", "--no-progress", "--limit-output"].iter().map(|s| s.to_string()).collect();
         return Ok(CommandSpec { program: PROGRAM.to_string(), args });
     }
+    let verb = if job.action == JobAction::Install { "install" } else { "upgrade" };
     let mut args: Vec<String> =
-        ["upgrade", &job.id, "-y", "--no-progress", "--limit-output"].iter().map(|s| s.to_string()).collect();
+        [verb, &job.id, "-y", "--no-progress", "--limit-output"].iter().map(|s| s.to_string()).collect();
     match &job.action {
-        JobAction::Upgrade => {}
+        JobAction::Upgrade | JobAction::Install => {}
         JobAction::InstallVersion { version } => {
             check_version(version)?;
             args.extend(["--version".to_string(), version.clone(), "--allow-downgrade".to_string()]);
@@ -118,6 +143,19 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
 mod tests {
     use super::*;
     use crate::model::Scope;
+
+    #[test]
+    fn installed_lines() {
+        let output = "Chocolatey v2.4.3\r\nchocolatey|2.4.3\r\nchocolatey-core.extension|1.4.0\r\n\
+                      python313|3.13.16\r\nvisualstudio2019buildtools|16.11.45\r\n2 packages installed.\r\n";
+        assert_eq!(
+            parse_installed(output),
+            [
+                ("python313".to_string(), "3.13.16".to_string()),
+                ("visualstudio2019buildtools".to_string(), "16.11.45".to_string())
+            ]
+        );
+    }
 
     #[test]
     fn outdated_lines() {
@@ -195,6 +233,7 @@ mod tests {
         );
 
         assert_eq!(build_command(&job(JobAction::ForceReinstall)).unwrap().args.last().unwrap(), "--force");
+        assert_eq!(build_command(&job(JobAction::Install)).unwrap().args[..2], ["install".to_string(), "python313".to_string()]);
         assert_eq!(build_command(&job(JobAction::Uninstall)).unwrap().args[..2], ["uninstall".to_string(), job(JobAction::Upgrade).id]);
         assert!(build_command(&job(JobAction::InstallVersion { version: "-1".into() })).is_err());
         assert!(build_command(&job(JobAction::StoreUpdateScan)).is_err());

@@ -11,6 +11,7 @@ pub mod eta;
 pub mod exec;
 pub mod history;
 pub mod intel;
+pub mod inventory;
 pub mod jobs;
 pub mod model;
 pub mod paths;

@@ -58,6 +58,9 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
   (sécurité, pilotes, antivirus Defender) et signale un redémarrage nécessaire,
   avec un bouton qui ouvre Windows Update et lance la recherche. C'est Windows qui
   les installe, comme d'habitude.
+- **Changer de PC** : exportez la liste de vos logiciels dans un fichier (Paramètres ›
+  Liste de vos logiciels) ; sur le nouveau PC, importez-la : MAJestic installe ceux
+  qui manquent et donne le lien des autres. Le fichier reste chez vous.
 - **Mises à jour qui échouent toujours** : après 3 échecs sur la même version,
   MAJestic ne la coche plus d'office et propose de l'ignorer ; la version suivante
   sera proposée normalement.

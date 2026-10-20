@@ -7,8 +7,8 @@ use majestic_core::eta::EtaModel;
 use majestic_core::intel::about::{self, About, AboutRequest};
 use majestic_core::model::*;
 use majestic_core::settings::Settings;
-use majestic_core::system::{elevation, icons, procs, registry, shell};
-use majestic_core::{cleanup, history, paths, pkgmgr, scan, scheduler, winget};
+use majestic_core::system::{elevation, filedialog, icons, procs, registry, shell};
+use majestic_core::{cleanup, history, inventory, paths, pkgmgr, scan, scheduler, winget};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -27,6 +27,8 @@ pub struct AppState {
     pub updated_from: Option<String>,
     /// Last answer of Windows Update (searched after each scan).
     pub windows_updates: Mutex<Option<WindowsUpdates>>,
+    /// File written by the last `export_inventory`.
+    pub last_export: Mutex<Option<std::path::PathBuf>>,
 }
 
 /// Runs blocking work off the async runtime.
@@ -137,6 +139,137 @@ fn schedule_status_now() -> Result<ScheduleStatus, String> {
         next_run,
         last_check: scheduler::load_last_check(),
     })
+}
+
+/// Texts of a file dialog, in the interface's language.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DialogText {
+    title: String,
+    filter_name: String,
+    /// Proposed file name (save only).
+    #[serde(default)]
+    file_name: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Exported {
+    path: String,
+    packages: usize,
+    manual: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Imported {
+    file: String,
+    plan: inventory::ImportPlan,
+}
+
+fn scanned_items(state: &AppState) -> Result<Vec<UpdateItem>, String> {
+    state
+        .last_scan
+        .lock()
+        .ok()
+        .and_then(|s| s.as_ref().map(|scan| scan.items.clone()))
+        .ok_or_else(|| "no_scan".to_string())
+}
+
+fn owner_window(window: &tauri::WebviewWindow) -> isize {
+    window.hwnd().map(|h| h.0 as isize).unwrap_or(0)
+}
+
+/// Saves the list of programs found by the last scan to a file chosen in
+/// "Save as" (`null` when cancelled).
+#[tauri::command]
+pub async fn export_inventory(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    text: DialogText,
+) -> Result<Option<Exported>, String> {
+    let items = scanned_items(&state)?;
+    let owner = owner_window(&window);
+    let exported = blocking(move || -> Result<Option<(std::path::PathBuf, Exported)>, String> {
+        let mut inv = inventory::build(&items);
+        // The scan lists only their outdated packages.
+        let settings = Settings::load();
+        inventory::add_installed(
+            &mut inv,
+            if settings.use_chocolatey { pkgmgr::choco::installed() } else { Vec::new() },
+            if settings.use_scoop { pkgmgr::scoop::installed() } else { Vec::new() },
+        );
+        let folder = inventory::default_folder();
+        let dialog = filedialog::Dialog {
+            owner,
+            title: &text.title,
+            folder: folder.as_deref(),
+            file_name: &text.file_name,
+            filter: (&text.filter_name, "*.json"),
+            extension: "json",
+        };
+        let Some(path) = filedialog::save(&dialog).map_err(|e| format!("{e:#}"))? else {
+            return Ok(None);
+        };
+        let json = serde_json::to_vec_pretty(&inv).map_err(|e| e.to_string())?;
+        std::fs::write(&path, json).map_err(|e| format!("{}: {e}", path.display()))?;
+        log::info!("inventory: {} packages, {} other programs saved", inv.packages.len(), inv.manual.len());
+        let summary = Exported { path: path.display().to_string(), packages: inv.packages.len(), manual: inv.manual.len() };
+        Ok(Some((path, summary)))
+    })
+    .await??;
+    Ok(exported.map(|(path, summary)| {
+        if let Ok(mut last) = state.last_export.lock() {
+            *last = Some(path);
+        }
+        summary
+    }))
+}
+
+/// Shows the last exported list in Explorer.
+#[tauri::command]
+pub fn reveal_export(state: State<'_, AppState>) -> Result<(), String> {
+    let path = state.last_export.lock().ok().and_then(|p| p.clone()).ok_or("nothing exported")?;
+    shell::reveal(&path).map_err(|e| format!("{e:#}"))
+}
+
+/// Reads a list chosen in "Open" and compares it with the last scan:
+/// what can be installed, what is already here (`null` when cancelled;
+/// errors `no_scan`, `invalid_file`).
+#[tauri::command]
+pub async fn import_inventory(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    text: DialogText,
+) -> Result<Option<Imported>, String> {
+    let items = scanned_items(&state)?;
+    let owner = owner_window(&window);
+    blocking(move || {
+        let folder = inventory::default_folder();
+        let dialog = filedialog::Dialog {
+            owner,
+            title: &text.title,
+            folder: folder.as_deref(),
+            file_name: "",
+            filter: (&text.filter_name, "*.json"),
+            extension: "json",
+        };
+        let Some(path) = filedialog::open(&dialog).map_err(|e| format!("{e:#}"))? else {
+            return Ok(None);
+        };
+        let invalid = |e: String| {
+            log::info!("inventory: {}: {e}", path.display());
+            "invalid_file".to_string()
+        };
+        let size = std::fs::metadata(&path).map_err(|e| invalid(e.to_string()))?.len();
+        if size > inventory::MAX_FILE {
+            return Err(invalid(format!("{size} bytes")));
+        }
+        let content = std::fs::read_to_string(&path).map_err(|e| invalid(e.to_string()))?;
+        let inv = inventory::parse(&content).map_err(|e| invalid(format!("{e:#}")))?;
+        Ok(Some(Imported { file: path.display().to_string(), plan: inventory::plan(&inv, &items) }))
+    })
+    .await?
 }
 
 /// Installers left on disk by winget, Chocolatey and Scoop.

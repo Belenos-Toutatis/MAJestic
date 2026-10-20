@@ -585,6 +585,41 @@ const handlers = {
     console.info('[mock] open_windows_update', page);
     return null;
   },
+  async export_inventory({ text }) {
+    await sleep(600 / SPEED);
+    console.info('[mock] export_inventory', text?.fileName);
+    const packages = dataset.filter((i) => ['winget', 'msstore', 'chocolatey', 'scoop'].includes(i.source)).length;
+    return { path: `C:\\Users\\demo\\Documents\\${text?.fileName || 'Logiciels MAJestic.json'}`, packages, manual: 6 };
+  },
+  async reveal_export() {
+    console.info('[mock] reveal_export');
+    return null;
+  },
+  // ?import=invalid answers with a broken file.
+  async import_inventory() {
+    await sleep(600 / SPEED);
+    if (params.get('import') === 'invalid') throw 'invalid_file';
+    const pkg = (source, id, name, version, scope = null) => ({ source, id, name, version, scope });
+    return {
+      file: 'E:\\Sauvegarde\\Logiciels MAJestic 2026-10-12.json',
+      plan: {
+        createdAt: '2026-10-12T18:20:00+02:00',
+        toInstall: [
+          pkg('winget', 'Inkscape.Inkscape', 'Inkscape', '1.4.2', 'machine'),
+          pkg('winget', 'GIMP.GIMP.3', 'GIMP 3', '3.0.6', 'machine'),
+          pkg('msstore', '9NCBCSZSJRSB', 'Spotify', null),
+          pkg('winget', 'KeePassXCTeam.KeePassXC', 'KeePassXC', '2.7.10', 'machine'),
+          pkg('scoop', 'ffmpeg', 'ffmpeg', '8.0', 'user'),
+        ],
+        installed: dataset.filter((i) => i.source === 'winget').slice(0, 12).map((i) => pkg(i.source, i.id, i.name, i.installedVersion)),
+        manual: [
+          { name: 'Jasc Paint Shop Pro 9', version: '9.01', url: null },
+          { name: 'Canon IJ Scan Utility', version: '2.4.0', url: 'https://www.canon.fr/support/' },
+        ],
+        manualInstalled: 4,
+      },
+    };
+  },
   async leftover_downloads() {
     await sleep(400 / SPEED);
     return { bytes: mockLeftovers, entries: mockLeftovers ? 3 : 0 };

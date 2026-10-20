@@ -493,6 +493,8 @@ pub enum JobAction {
     StoreUpdateScan,
     /// Remove the program with its package manager.
     Uninstall,
+    /// Install a package that is not on this PC (from an imported list).
+    Install,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

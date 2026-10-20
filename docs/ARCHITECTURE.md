@@ -52,6 +52,9 @@ Argument names are camelCase on the JS side.
 | `app_info` | – | `{ appVersion, uiLanguage, elevated, adminMember, dataDir, updatedFrom, scheduleNotice }` (`updatedFrom`: previous version right after a self-update; `scheduleNotice`: `missing` when the scheduled check was turned off because its task disappeared, `moved` when the task runs another copy; the task itself is never rewritten at start) |
 | `get_settings` | – | `Settings` |
 | `save_settings` | `{ settings }` | `Settings` (`schedule` ignored: kept as stored) |
+| `export_inventory` | `{ text: { title, filterName, fileName } }` | `{ path, packages, manual } \| null` ("Save as" dialog in Documents, then writes the `majestic-inventory` JSON: packages of winget, the Store, Chocolatey (`choco list -r`) and Scoop (`apps` folder), plus the other applications as `manual` entries with their link; error `no_scan`) |
+| `reveal_export` | – | shows the last exported file in Explorer |
+| `import_inventory` | `{ text: { title, filterName } }` | `{ file, plan: { createdAt, toInstall, installed, manual, manualInstalled } } \| null` ("Open" dialog, file ≤ 5 MB, compared with the last scan by key, and by name without version for `manual`; errors `no_scan`, `invalid_file`) |
 | `leftover_downloads` | – | `{ bytes, entries }` (installers left in `%TEMP%\WinGet\<id>.<version>`, `%TEMP%\chocolatey\<id>` and Scoop's `cache`; winget's own `cache` folder and loose log files are kept; entries younger than 10 min are skipped) |
 | `clean_downloads` | – | `{ freed, removed, failed }`; error `busy` while a batch runs or `winget.exe` / `choco.exe` / `msiexec.exe` is running |
 | `describe_item` | `{ request: { source, id, name, publisher, versions, lang } }` | `{ summary, description, locale, origin, url } \| null` (what the program does: MAJestic's own text for known programs, local Scoop manifest, winget-pkgs manifest in `fr-FR` when published else the default locale, Chocolatey catalog; online sources only when allowed) |
@@ -93,7 +96,7 @@ Argument names are camelCase on the JS side.
 
 ```js
 { key, source, id, name,
-  action: { type: "upgrade" },            // or {type:"install_version", version}, {type:"force_reinstall"}, {type:"interactive"}, {type:"uninstall"}
+  action: { type: "upgrade" },            // or {type:"install_version", version}, {type:"force_reinstall"}, {type:"interactive"}, {type:"uninstall"}, {type:"install"} (package not on this PC, from an imported list)
   fromVersion: item.installedVersion, toVersion: item.availableVersion,
   scope: item.scope,
   includeUnknown: item.versionCertainty !== "exact",

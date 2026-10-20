@@ -68,6 +68,7 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
         }
         JobAction::StoreUpdateScan => bail!("the Store update scan is not a Scoop command"),
         JobAction::Uninstall => vec!["uninstall".to_string(), job.id.clone()],
+        JobAction::Install => vec!["install".to_string(), job.id.clone()],
     };
     let launcher = launcher().ok_or_else(|| anyhow!("Scoop is not installed"))?;
     Ok(launcher.command(&args.iter().map(String::as_str).collect::<Vec<_>>()))
@@ -110,6 +111,29 @@ pub fn root() -> Option<PathBuf> {
 
 fn launcher() -> Option<Launcher> {
     find_launcher(&root()?)
+}
+
+/// Apps installed by Scoop (folders of `apps`, Scoop itself left out), with
+/// the version of their local manifest. No command run.
+pub fn installed() -> Vec<(String, Option<String>)> {
+    let Some(apps) = root().map(|r| r.join("apps")) else { return Vec::new() };
+    let Ok(list) = std::fs::read_dir(apps) else { return Vec::new() };
+    let mut found: Vec<(String, Option<String>)> = list
+        .flatten()
+        .filter(|e| e.path().join("current").exists())
+        .filter_map(|e| e.file_name().to_str().map(str::to_string))
+        .filter(|name| !name.eq_ignore_ascii_case("scoop") && check_id(name).is_ok())
+        .map(|name| {
+            let version = root()
+                .map(|r| r.join("apps").join(&name).join("current").join("manifest.json"))
+                .and_then(|p| std::fs::read(p).ok())
+                .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+                .and_then(|j| j.get("version")?.as_str().map(str::to_string));
+            (name, version)
+        })
+        .collect();
+    found.sort();
+    found
 }
 
 /// The `description` of an installed app, from its local manifest

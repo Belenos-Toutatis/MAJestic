@@ -5,6 +5,7 @@
 
 pub mod classify;
 pub mod elevation;
+pub mod filedialog;
 pub mod fileinfo;
 pub mod icons;
 pub mod procs;

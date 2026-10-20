@@ -747,3 +747,16 @@ button.strip-seg:hover { background: var(--surface-hover); }
 
 .fail-repeated { display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 0; color: var(--warning-text, var(--text)); }
 .fail-repeated svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+
+/* ================================================================= list of programs */
+
+.inv-dialog { display: grid; gap: 12px; }
+.inv-dialog section { display: grid; gap: 6px; }
+.inv-file { overflow-wrap: anywhere; }
+.inv-list { display: grid; max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
+.inv-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; min-width: 0; }
+.inv-row + .inv-row { border-top: 1px solid var(--border); }
+.inv-row:hover { background: var(--surface-2, transparent); }
+.inv-row .badge svg { width: 12px; height: 12px; }
+.inv-manual-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.inv-manual { display: flex; align-items: center; gap: 8px; min-width: 0; }
