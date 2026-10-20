@@ -139,6 +139,13 @@ table { border-collapse: collapse; }
   animation: pulse 1.6s var(--ease) infinite;
 }
 
+/* A newer MAJestic is available. */
+.nav-update { color: var(--gold-text); background: var(--gold-soft); margin-bottom: 4px; }
+.nav-update:hover { background: var(--gold-soft); color: var(--gold-text); filter: brightness(1.04); }
+.nav-update svg { animation: nudge-up 2.4s var(--ease) infinite; }
+@keyframes nudge-up { 0%, 70%, 100% { transform: none; } 80% { transform: translateY(-3px); } 90% { transform: translateY(1px); } }
+@media (prefers-reduced-motion: reduce) { .nav-update svg { animation: none; } }
+
 .main {
   position: relative;
   min-width: 0;

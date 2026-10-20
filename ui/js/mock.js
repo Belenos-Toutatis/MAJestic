@@ -429,7 +429,7 @@ function applySuccess(job) {
 const handlers = {
   async app_info() {
     await sleep(60);
-    return { appVersion: '0.1.1', uiLanguage: navigator.language || 'fr-FR', elevated: false, adminMember: true, dataDir: 'C:\\Users\\demo\\AppData\\Local\\MAJestic' };
+    return { appVersion: params.get('updated') ? '0.2.0' : '0.1.1', updatedFrom: params.get('updated') ? '0.1.1' : null, uiLanguage: navigator.language || 'fr-FR', elevated: false, adminMember: true, dataDir: 'C:\\Users\\demo\\AppData\\Local\\MAJestic' };
   },
   async get_settings() {
     await sleep(60);
@@ -499,6 +499,42 @@ const handlers = {
   },
   async open_logs() {
     console.info('[mock] open_logs');
+    return null;
+  },
+  // ?appUpdate=1 offers a newer MAJestic; ?appUpdate=fail makes its install fail.
+  async check_app_update() {
+    if (!params.get('appUpdate')) return null;
+    await sleep(800 / SPEED);
+    return {
+      version: '0.2.0',
+      pageUrl: 'https://github.com/Belenos-Toutatis/MAJestic/releases/tag/v0.2.0',
+      size: 6.6 * MB,
+      notes: [
+        '## Nouveautés / What’s new',
+        '',
+        '- **Mise à jour en un clic** : MAJestic se met à jour lui-même,',
+        '  empreinte SHA-256 vérifiée.',
+        '- Corrections diverses.',
+        '',
+        '*MAJestic now updates itself in one click.*',
+      ].join('\n'),
+    };
+  },
+  async install_app_update() {
+    const total = 6.6 * MB;
+    for (let done = 0; done < total; done += total / 12) {
+      emit('app-update-progress', { phase: 'download', downloaded: Math.round(done), total });
+      await sleep(250 / SPEED);
+    }
+    emit('app-update-progress', { phase: 'download', downloaded: total, total });
+    if (params.get('appUpdate') === 'fail') {
+      throw { kind: 'hash_mismatch', message: 'expected 9b9e…66ed, got 0b77…44e0' };
+    }
+    emit('app-update-progress', { phase: 'install', downloaded: 0, total: null });
+    await sleep(600 / SPEED);
+    emit('app-update-progress', { phase: 'restart', downloaded: 0, total: null });
+    await sleep(1200 / SPEED);
+    location.search = '?updated=1';
     return null;
   },
 };

@@ -1,3 +1,4 @@
+<!-- download-notes -->
 **Téléchargez `MAJestic.exe` ci-dessous et lancez-le : rien à installer.**
 *Download `MAJestic.exe` below and run it: nothing to install.*
 

@@ -16,6 +16,7 @@ pub mod paths;
 pub mod pkgmgr;
 pub mod scan;
 pub mod scheduler;
+pub mod selfupdate;
 pub mod settings;
 pub mod system;
 pub mod version;

@@ -531,6 +531,46 @@ dialog.dialog.closing::backdrop { opacity: 0; transition: opacity var(--t-fast);
 .banner ul { margin-top: 4px; display: grid; gap: 4px; }
 .banner .banner-actions { margin-top: 10px; gap: 8px; }
 
+/* ------------------------------------------------------------- MAJestic update dialog */
+
+.update-dialog { display: grid; gap: 14px; margin-top: 6px; }
+.update-versions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--r-m);
+  background: var(--gold-soft);
+}
+.update-versions > div { display: grid; gap: 2px; }
+.update-versions strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.update-versions .arrow-inline { font-size: 18px; color: var(--gold-text); }
+.update-versions .grow-right { margin-left: auto; }
+.update-notes {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 10px 14px;
+  border-radius: var(--r-m);
+  box-shadow: inset 0 0 0 1px var(--border);
+  display: grid;
+  gap: 6px;
+}
+.update-notes h3 { font-size: 14px; font-weight: 600; }
+.update-notes ul { padding-left: 18px; display: grid; gap: 4px; }
+.update-notes ul li { list-style: disc; }
+.update-progress { display: grid; gap: 6px; }
+.update-progress[hidden] { display: none; }
+.update-track { height: 8px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.update-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  transition: width var(--t-med) var(--ease-out);
+}
+.update-fill.done { background: var(--success); }
+.update-status { color: var(--text-2); font-variant-numeric: tabular-nums; }
+
 /* ------------------------------------------------------------- spinner */
 
 .spinner {

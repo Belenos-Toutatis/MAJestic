@@ -57,6 +57,9 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
 - **Revenir à une version précédente** depuis l'historique (winget et Chocolatey).
 - **Vérification planifiée** (quotidienne, hebdomadaire ou mensuelle) avec une
   notification Windows quand une mise à jour importante est disponible.
+- **Se met à jour lui-même** : quand une nouvelle version de MAJestic sort, un
+  bouton « Nouvelle version » apparaît ; un clic suffit (empreinte SHA-256
+  vérifiée avant de remplacer quoi que ce soit, réglages et historique conservés).
 - **Aucune aide nécessaire** : chaque élément de l'interface s'explique au
   survol. Thème clair, sombre ou automatique ; français et anglais.
 
@@ -138,6 +141,7 @@ Pour vous conseiller, il consulte des sources publiques :
 | `raw.githubusercontent.com`, `api.github.com` | Manifestes winget (notes de version, installateur) ; dernières versions publiées sur GitHub | L'identifiant d'**un seul** logiciel |
 | `community.chocolatey.org` | Catalogue Chocolatey, pour les logiciels qu'aucun gestionnaire ne suit | Le nom d'**un seul** logiciel |
 | Serveur de l'éditeur | Taille de l'installateur, pour estimer le temps restant (requête `HEAD`, sans téléchargement) | L'adresse officielle de l'installateur, lue dans le manifeste winget |
+| `api.github.com`, `github.com` | Savoir s'il existe une nouvelle version de MAJestic, et la télécharger si vous le demandez | Rien sur vos logiciels |
 
 **La liste de vos logiciels n'est jamais envoyée.** Chaque requête ne porte que
 sur un logiciel et ne contient aucun identifiant personnel ; comme toute
@@ -166,6 +170,8 @@ leurs sources habituelles, et seulement quand vous les lancez.
 - Roll back to a previous version from the history; scheduled checks with Windows
   notifications; light/dark/auto theme; French and English; every control
   explains itself with a tooltip.
+- Updates itself in one click when a new version is out (SHA-256 checked before
+  anything is replaced; settings and history kept).
 - Privacy: public catalogs are downloaded; your software list is never sent anywhere.
 
 Download `MAJestic.exe` from the [Releases](https://github.com/Belenos-Toutatis/MAJestic/releases/latest)
@@ -224,6 +230,7 @@ To advise you, it reads public sources:
 | `raw.githubusercontent.com`, `api.github.com` | winget manifests (release notes, installer); latest releases published on GitHub | The identifier of **one** program |
 | `community.chocolatey.org` | Chocolatey catalog, for programs no package manager tracks | The name of **one** program |
 | Publisher's server | Installer size, to estimate the time remaining (`HEAD` request, nothing is downloaded) | The official installer address, read from the winget manifest |
+| `api.github.com`, `github.com` | Whether a new version of MAJestic exists, and downloading it when you ask | Nothing about your software |
 
 **Your software list is never sent.** Each request is about a single program and
 carries no personal identifier; like any connection, it reveals your IP address to

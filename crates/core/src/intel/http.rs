@@ -67,6 +67,20 @@ pub fn get_json<T: serde::de::DeserializeOwned>(url: &str) -> anyhow::Result<T> 
     serde_json::from_str(&text).with_context(|| format!("decoding JSON from {url}"))
 }
 
+/// Streaming GET for a large download: the body reader (at most `max` bytes)
+/// and the announced length. Non-2xx statuses are errors.
+pub fn get_stream(url: &str, timeout: Duration, max: u64) -> anyhow::Result<(ureq::BodyReader<'static>, Option<u64>)> {
+    let response = AGENT
+        .get(url)
+        .config()
+        .timeout_global(Some(timeout))
+        .build()
+        .call()
+        .with_context(|| format!("GET {url}"))?;
+    let len = header_u64(response.headers(), CONTENT_LENGTH.as_str()).filter(|&n| n > 0);
+    Ok((response.into_body().into_with_config().limit(max).reader(), len))
+}
+
 /// Size of a remote file: HEAD request following redirects, `Content-Length`
 /// (falls back to a `Range: bytes=0-0` GET reading `Content-Range`).
 /// `None` when unknown. ≤ 8 s.

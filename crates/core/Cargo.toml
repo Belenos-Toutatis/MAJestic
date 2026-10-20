@@ -20,6 +20,7 @@ quick-xml = "0.38"
 png = "0.18"
 base64 = "0.22"
 dirs = "6"
+sha2 = "0.10"
 
 [dependencies.windows]
 version = "0.62"

@@ -20,6 +20,10 @@ pub struct AppState {
     pub icons: Mutex<HashMap<String, Option<String>>>,
     /// Some while a batch of updates runs.
     pub batch: Mutex<Option<batch::BatchControl>>,
+    /// Newer MAJestic found by `check_app_update`.
+    pub app_update: Mutex<Option<majestic_core::selfupdate::Release>>,
+    /// Previous version when this process was started by an update.
+    pub updated_from: Option<String>,
 }
 
 /// Runs blocking work off the async runtime.
@@ -35,16 +39,20 @@ pub struct AppInfo {
     elevated: bool,
     admin_member: bool,
     data_dir: String,
+    /// Set right after MAJestic updated itself (previous version).
+    updated_from: Option<String>,
 }
 
 #[tauri::command]
-pub async fn app_info() -> Result<AppInfo, String> {
-    blocking(|| AppInfo {
+pub async fn app_info(state: State<'_, AppState>) -> Result<AppInfo, String> {
+    let updated_from = state.updated_from.clone();
+    blocking(move || AppInfo {
         app_version: majestic_core::APP_VERSION.to_string(),
         ui_language: shell::ui_language(),
         elevated: elevation::is_elevated(),
         admin_member: elevation::is_admin_member(),
         data_dir: paths::data_dir().to_string_lossy().into_owned(),
+        updated_from,
     })
     .await
 }

@@ -39,20 +39,24 @@ HTML/CSS/JS sans étape de build), en **français et anglais**.
 ## Commandes
 
 ```bash
-cargo test --workspace                 # ~157 tests, tous doivent passer
+cargo test --workspace                 # ~160 tests, tous doivent passer
 cargo clippy --workspace --all-targets # doit rester sans avertissement
 cargo build --release -p majestic      # → target/release/MAJestic.exe
 cargo run -p majestic-core --example scan -- --json      # analyse complète (--lookup : + recherche en ligne)
 cargo run -p majestic-core --example job -- <source> <id> [version] [--from V --to V]
 cargo run -p majestic-core --example stream -- winget download --id X -d C:\tmp
+cargo run -p majestic-core --example selfupdate -- <copie\MAJestic.exe> 0.1.0   # auto-MAJ sans fenêtre
 python -m http.server -d ui            # interface dans un navigateur, backend simulé (.claude/launch.json : « ui-mock »)
 ```
 
 - Fermer `MAJestic.exe` avant de recompiler (sinon « Accès refusé », exe verrouillé).
 - Mock (`ui/js/mock.js`, actif hors Tauri) : `?speed=4`, `?mock=empty`,
-  `?mock=scan-error`, `?uac=refuse`.
+  `?mock=scan-error`, `?uac=refuse`, `?appUpdate=1` (ou `=fail`), `?updated=1`.
 - Modes de l'exe : sans argument = fenêtre ; `--worker <pipe> <pid>` = processus
-  élevé ; `--check` = vérification planifiée (toast, sans fenêtre).
+  élevé ; `--check` = vérification planifiée (toast, sans fenêtre) ;
+  `--after-update <pid> <version>` = fenêtre lancée par l'auto-mise à jour.
+- Une seule fenêtre MAJestic à la fois : si l'utilisateur a déjà MAJestic ouvert, une
+  copie de test passe la main à sa fenêtre et se ferme aussitôt.
 - `gh` est dans `C:\Program Files\GitHub CLI\gh.exe` (pas dans le PATH de Bash).
 
 ## Architecture (résumé)
@@ -103,6 +107,13 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `cac
   `StaleInstaller`, élément non coché. Après chaque mise à jour winget réussie,
   `jobs::unchanged_version` relit la version (`winget list --id`, 3 essais sur ~20 s) ;
   inchangée → `FailureKind::NoEffect`, avec le bouton « Ignorer la version ».
+- **Mise à jour de MAJestic lui-même** (`selfupdate.rs` dans le moteur, `appupdate.rs`
+  dans l'app, `ui/js/appupdate.js`) : dernière version GitHub, téléchargement en
+  `MAJestic.exe.new`, contrôle SHA-256 + version du fichier, exe renommé en `.old`,
+  nouveau lancé avec `--after-update <pid> <ancienne version>`, qui attend la fin de
+  l'ancien (verrou d'instance unique) puis supprime le `.old`. Les notes affichées
+  s'arrêtent au marqueur `<!-- download-notes -->` de `.github/release-notes.md`.
+  Respecte « Utiliser les sources en ligne ».
 - **Retour arrière** : winget, Microsoft Store et Chocolatey (`choco::list_versions`).
 - **Vérification planifiée** : tâche « MAJestic UpdateCheck » (XML UTF-16 LE avec BOM,
   `StartWhenAvailable`, lance `--check`). Toasts via l'AUMID `MAJestic.UpdateAssistant`

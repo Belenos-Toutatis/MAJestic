@@ -15,6 +15,7 @@ import { mountProgress } from './views/progress.js';
 import { mountSummary } from './views/summary.js';
 import { mountHistory } from './views/history.js';
 import { mountSettings } from './views/settings.js';
+import { checkAppUpdate, announceUpdated, openAppUpdate } from './appupdate.js';
 
 const root = document.getElementById('app');
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -67,9 +68,24 @@ function renderShell() {
     navButton('history', 'history', 'nav.history', 'nav.historyTip'),
     h('div', { class: 'rail-spacer' }),
     navButton('settings', 'settings', 'nav.settings', 'nav.settingsTip'));
+  updateAppUpdateButton();
   mainEl = h('main', { class: 'main', id: 'main' });
   root.append(h('div', { class: 'app' }, railEl, mainEl));
   updateNavBadge();
+}
+
+/** Gold "new version" button above Settings while a newer MAJestic exists. */
+function updateAppUpdateButton() {
+  railEl?.querySelector('.nav-update')?.remove();
+  const release = state.appUpdate;
+  if (!railEl || !release) return;
+  const btn = h('button', {
+    type: 'button',
+    class: 'nav-btn nav-update',
+    tip: [t('appUpdate.railTitle', { version: release.version }), t('appUpdate.railTip')],
+    onClick: openAppUpdate,
+  }, icon('arrow-up'), h('span', null, t('appUpdate.rail')));
+  railEl.insertBefore(btn, railEl.querySelector('[data-route="settings"]'));
 }
 
 function updateNav() {
@@ -160,6 +176,7 @@ async function boot() {
   bus.on('screen', () => { renderView(); updateNavBadge(); });
   bus.on('item-updated', updateNavBadge);
   bus.on('updates-done', updateNavBadge);
+  bus.on('app-update', updateAppUpdateButton);
   bus.on('settings', () => {
     applyTheme();
     if (applyLanguage()) rerenderAll();
@@ -178,7 +195,9 @@ async function boot() {
   });
 
   await listenersReady;
+  announceUpdated();
   if (state.settings.scanOnStart) startScan();
+  checkAppUpdate();
 }
 
 boot().catch((e) => {

@@ -49,7 +49,7 @@ Argument names are camelCase on the JS side.
 
 | Command | Arguments | Returns |
 |---|---|---|
-| `app_info` | – | `{ appVersion, uiLanguage, elevated, adminMember, dataDir }` |
+| `app_info` | – | `{ appVersion, uiLanguage, elevated, adminMember, dataDir, updatedFrom }` (`updatedFrom`: previous version right after a self-update) |
 | `get_settings` | – | `Settings` |
 | `save_settings` | `{ settings }` | `Settings` (schedule applied; error string on failure) |
 | `scan` | – | `ScanResult` (emits `scan-progress` meanwhile; then starts the lookup phase in background, which emits `item-updated` and `scan-progress` with step `lookup`) |
@@ -65,6 +65,8 @@ Argument names are camelCase on the JS side.
 | `open_url` | `{ url }` | `null` |
 | `open_store_updates` | – | `null` |
 | `open_logs` | – | `null` |
+| `check_app_update` | – | `{ version, pageUrl, notes, size } \| null` (newer MAJestic on GitHub; `null` when offline or online sources are off) |
+| `install_app_update` | – | never returns on success: the new version starts and this one exits; error `{ kind, message }` (`busy`, `not_checked`, `network`, `hash_mismatch`, `version_mismatch`, `write_denied`, `swap_failed`, `restart_failed`) |
 
 ### Events
 
@@ -75,6 +77,7 @@ Argument names are camelCase on the JS side.
 | `job-progress` | `JobEvent` |
 | `queue-progress` | `QueueProgress` |
 | `updates-done` | `{ rebootRequired: bool, elevationRefused: bool, results: { key, state: JobState }[] }` |
+| `app-update-progress` | `{ phase: "download" \| "install" \| "restart", downloaded, total }` |
 
 ### Building a `JobRequest` from an `UpdateItem`
 
@@ -97,3 +100,19 @@ package's past installs on this PC, else a model by installer type and size.
 During the batch, the backend refines them with the measured speed and a
 calibration factor (actual ÷ estimated of finished jobs) and emits smoothed
 `etaSecs` in `job-progress` and `queue-progress`.
+
+## Self-update
+
+`check_app_update` reads the latest release of `Belenos-Toutatis/MAJestic`
+from the GitHub API (drafts and pre-releases ignored; assets accepted only
+from this repository). `install_app_update` downloads `MAJestic.exe` next to
+the running file as `MAJestic.exe.new`, and keeps it only if its SHA-256
+equals the published `MAJestic.exe.sha256` and its file version is the
+announced one. It then renames the running file to `MAJestic.exe.old`
+(Windows allows it), the new one to `MAJestic.exe`, starts it with
+`--after-update <pid> <previous version>` and exits. The new process waits
+for the old one to exit (single-instance lock), deletes the `.old` file and
+the UI announces the update. Settings and history live in
+`%LOCALAPPDATA%\MAJestic` and are untouched. Until releases are code-signed,
+the hash only protects against corrupted or swapped downloads, not against a
+compromised GitHub account.

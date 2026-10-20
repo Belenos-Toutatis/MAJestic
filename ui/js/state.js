@@ -37,6 +37,7 @@ export const state = {
     detailsKey: null,
   },
   run: null,             // see actions.newRun
+  appUpdate: null,       // newer MAJestic release (check_app_update)
 };
 
 export function itemByKey(key) {
