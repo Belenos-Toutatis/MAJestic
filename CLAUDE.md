@@ -46,6 +46,7 @@ cargo run -p majestic-core --example scan -- --json      # analyse complète (--
 cargo run -p majestic-core --example job -- <source> <id> [version] [--from V --to V]
 cargo run -p majestic-core --example stream -- winget download --id X -d C:\tmp
 cargo run -p majestic-core --example selfupdate -- <copie\MAJestic.exe> 0.1.0   # auto-MAJ sans fenêtre
+cargo run -p majestic-core --example wupdate -- [--online] [--open]          # mises à jour Windows en attente
 python -m http.server -d ui            # interface dans un navigateur, backend simulé (.claude/launch.json : « ui-mock », sans cache)
 ```
 
