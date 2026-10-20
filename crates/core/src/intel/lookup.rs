@@ -15,7 +15,7 @@ use regex::Regex;
 use serde::Deserialize;
 
 use super::http;
-use crate::model::Alternative;
+use crate::model::{Alternative, Links};
 use crate::version::{self, Version};
 
 const CHOCOLATEY_SEARCH: &str = "https://community.chocolatey.org/api/v2/Search()";
@@ -133,6 +133,33 @@ pub fn latest_elsewhere(input: &LookupInput) -> Option<Alternative> {
         version: latest,
         origin: "chocolatey".to_string(),
         url: Some(format!("{CHOCOLATEY_PACKAGE_PAGE}{}", encode(&id))),
+    })
+}
+
+/// A program whose registry entry does not lead to where it is published.
+struct KnownRepo {
+    /// Start of the display name, lowercase.
+    name_prefix: &'static str,
+    owner: &'static str,
+    repo: &'static str,
+}
+
+/// Euro-Office, a fork of ONLYOFFICE, kept ONLYOFFICE's publisher and links
+/// in the registry (onlyoffice.com): its releases are on GitHub.
+const KNOWN_REPOS: &[KnownRepo] = &[KnownRepo { name_prefix: "euro-office", owner: "Euro-Office", repo: "DesktopEditors" }];
+
+/// Links of a program listed in [`KNOWN_REPOS`], to use instead of the
+/// registry ones: its GitHub repository, latest release and issues. They
+/// also make [`latest_elsewhere`] look up its GitHub releases.
+pub fn known_links(display_name: &str) -> Option<Links> {
+    let name = display_name.trim().to_lowercase();
+    let known = KNOWN_REPOS.iter().find(|k| name.starts_with(k.name_prefix))?;
+    let repo = format!("https://github.com/{}/{}", known.owner, known.repo);
+    Some(Links {
+        homepage: Some(repo.clone()),
+        download: Some(format!("{repo}/releases/latest")),
+        release_notes: None,
+        support: Some(format!("{repo}/issues")),
     })
 }
 
@@ -558,6 +585,47 @@ mod tests {
             pair("a", "b")
         );
         assert_eq!(github_repo(&[]), None);
+    }
+
+    #[test]
+    fn known_programs() {
+        let links = known_links("Euro-Office (Standalone) 9.3.5 (x64)").unwrap();
+        assert_eq!(links.homepage.as_deref(), Some("https://github.com/Euro-Office/DesktopEditors"));
+        assert_eq!(links.download.as_deref(), Some("https://github.com/Euro-Office/DesktopEditors/releases/latest"));
+        let found: Vec<String> = [links.homepage, links.download, links.support].into_iter().flatten().collect();
+        assert_eq!(github_repo(&found), Some(("Euro-Office".to_string(), "DesktopEditors".to_string())));
+        assert!(known_links("  euro-office desktop editors").is_some());
+        assert!(known_links("ONLYOFFICE Desktop Editors 9.3.1 (x64)").is_none());
+
+        // Its tags carry a package revision: v9.3.5-2 is the installed 9.3.5.0.
+        let tag = version_from_tag("v9.3.5-2").unwrap();
+        assert!(same_scheme(&tag, "9.3.5.0"));
+        assert!(!version::is_newer(&tag, "9.3.5.0"));
+        assert!(version::is_newer(&version_from_tag("v9.3.6-1").unwrap(), "9.3.5.0"));
+        assert!(!version::is_newer(&version_from_tag("v9.3.6-1").unwrap(), "9.3.6.0"));
+    }
+
+    /// The real Euro-Office releases, as an older 9.3.4 would see them. Run
+    /// with `--ignored`.
+    #[test]
+    #[ignore = "network"]
+    fn euro_office_releases() {
+        let name = "Euro-Office (Standalone) 9.3.4 (x64)";
+        let links = known_links(name).unwrap();
+        let input = LookupInput {
+            name: name.into(),
+            publisher: Some("Ascensio System SIA".into()),
+            version: Some("9.3.4.0".into()),
+            urls: [links.homepage, links.download, links.support].into_iter().flatten().collect(),
+        };
+        match latest_elsewhere(&input) {
+            Some(Alternative::LatestElsewhere { version, origin, url }) => {
+                println!("{version} from {origin}: {url:?}");
+                assert_eq!(origin, "github");
+                assert!(url.unwrap().starts_with("https://github.com/Euro-Office/DesktopEditors/releases/"));
+            }
+            other => panic!("no newer release found: {other:?}"),
+        }
     }
 
     #[test]

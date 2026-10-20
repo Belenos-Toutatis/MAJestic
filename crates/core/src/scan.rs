@@ -120,6 +120,10 @@ fn attach_program(item: &mut UpdateItem, p: &InstalledProgram) {
     item.links.homepage = item.links.homepage.take().or_else(|| p.url_info_about.clone());
     item.links.download = item.links.download.take().or_else(|| p.url_update_info.clone());
     item.links.support = item.links.support.take().or_else(|| p.help_link.clone());
+    // A fork that kept the original's links in the registry.
+    if let Some(known) = intel::lookup::known_links(&p.display_name) {
+        item.links = Links { release_notes: item.links.release_notes.take(), ..known };
+    }
     if p.uninstall_string.as_deref().is_some_and(|s| !s.trim().is_empty()) {
         item.uninstall_key = Some(p.reg_id());
     }
@@ -176,7 +180,8 @@ fn pretty_choco_name(id: &str) -> String {
     }
 }
 
-fn unmanaged_alternatives(p: &InstalledProgram, category: &Category) -> Vec<Alternative> {
+/// `links`: the item's, filled by [`attach_program`].
+fn unmanaged_alternatives(p: &InstalledProgram, links: &Links, category: &Category) -> Vec<Alternative> {
     let mut alts = Vec::new();
     match category {
         Category::AutoUpdating { by } => alts.push(Alternative::ManagedElsewhere { by: by.clone() }),
@@ -193,9 +198,9 @@ fn unmanaged_alternatives(p: &InstalledProgram, category: &Category) -> Vec<Alte
             alts.push(Alternative::OpenUrl { purpose, url: u.to_string() });
         }
     };
-    push_url(UrlPurpose::Download, &p.url_update_info);
-    push_url(UrlPurpose::Homepage, &p.url_info_about);
-    push_url(UrlPurpose::Support, &p.help_link);
+    push_url(UrlPurpose::Download, &links.download);
+    push_url(UrlPurpose::Homepage, &links.homepage);
+    push_url(UrlPurpose::Support, &links.support);
     if matches!(category, Category::Application | Category::Driver) {
         alts.push(Alternative::OpenUrl { purpose: UrlPurpose::Search, url: intel::lookup::web_search_url(&p.display_name) });
     }
@@ -453,7 +458,7 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
                 None => item.version_certainty = VersionCertainty::Unknown,
             },
         }
-        item.alternatives = unmanaged_alternatives(p, &category);
+        item.alternatives = unmanaged_alternatives(p, &item.links, &category);
         item.category = category;
         item.kind = ItemKind::Unmanaged;
         b.get_or_insert(item);

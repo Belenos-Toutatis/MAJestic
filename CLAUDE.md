@@ -138,6 +138,14 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   Applications installées (apps du Store) ; toujours aussi « Programmes et
   fonctionnalités ». Les vraies désinstallations ne se testent qu'avec l'accord de
   l'utilisateur.
+- **Logiciels non gérés** (`intel::lookup`) : version la plus récente cherchée sur
+  GitHub quand un lien du registre mène à un dépôt, sinon dans le catalogue
+  Chocolatey. `KNOWN_REPOS` relie à leur dépôt les logiciels dont le registre ne
+  donne pas le bon lien : Euro-Office (fork d'ONLYOFFICE qui a gardé l'éditeur
+  « Ascensio System SIA » et les liens onlyoffice.com) → `Euro-Office/DesktopEditors`.
+  Ses étiquettes portent une révision (`v9.3.5-2` = 9.3.5.0 installé), lue comme
+  « avant 9.3.5 » : pas de fausse alerte. FileZilla n'a pas de fiche winget et son
+  site refuse les robots (403) : sa version est vérifiée via Chocolatey.
 - **Retour arrière** : winget, Microsoft Store et Chocolatey (`choco::list_versions`).
 - **Vérification planifiée** : tâche « MAJestic UpdateCheck » (XML UTF-16 LE avec BOM,
   `StartWhenAvailable`, lance `--check`). Toasts via l'AUMID `MAJestic.UpdateAssistant`
