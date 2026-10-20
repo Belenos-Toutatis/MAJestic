@@ -17,6 +17,8 @@ const DEFAULT_BANDWIDTH: f64 = 4.0 * 1024.0 * 1024.0;
 /// Download size assumed when the installer size is unknown.
 const DEFAULT_SIZE: f64 = 40.0 * 1024.0 * 1024.0;
 /// winget/choco start-up, source opening, hash verification.
+/// Typical duration of an uninstallation, in seconds.
+const UNINSTALL_SECS: f64 = 25.0;
 const TOOL_OVERHEAD: f64 = 6.0;
 const MB: f64 = 1024.0 * 1024.0;
 
@@ -61,7 +63,8 @@ impl Default for EtaModel {
 
 impl EtaModel {
     pub fn from_history(history: &[HistoryEntry]) -> EtaModel {
-        let ok = history.iter().filter(|h| h.result == "succeeded");
+        // Uninstallations say nothing about installation times.
+        let ok = history.iter().filter(|h| h.result == "succeeded" && h.action != JobAction::Uninstall);
 
         let mut speeds: Vec<f64> = Vec::new();
         let mut per_key: HashMap<String, Vec<f64>> = HashMap::new();
@@ -90,6 +93,14 @@ impl EtaModel {
     pub fn estimate(&self, job: &JobRequest) -> JobEstimate {
         if job.action == JobAction::StoreUpdateScan {
             return JobEstimate { key: job.key.clone(), download_secs: 0.0, install_secs: 60.0, basis: "default".into() };
+        }
+        if job.action == JobAction::Uninstall {
+            return JobEstimate {
+                key: job.key.clone(),
+                download_secs: TOOL_OVERHEAD,
+                install_secs: UNINSTALL_SECS * self.correction,
+                basis: "default".into(),
+            };
         }
         let size = job.download_size.map(|b| b as f64);
         let download_secs = size.unwrap_or(DEFAULT_SIZE) / self.bandwidth;

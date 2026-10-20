@@ -72,6 +72,8 @@ fn main() {
             commands::open_logs,
             commands::get_windows_updates,
             commands::open_windows_update,
+            commands::run_uninstaller,
+            commands::open_installed_apps,
             appupdate::check_app_update,
             appupdate::install_app_update,
         ])

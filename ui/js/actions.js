@@ -7,6 +7,7 @@ import { isSelectable, buildJob, runningOf, isFinal } from './model.js';
 import { t } from './i18n.js';
 import { toast } from './components/toast.js';
 import { closeAppsDialog } from './components/close-apps.js';
+import { confirmDialog } from './components/dialog.js';
 
 let pendingItemUpdates = [];
 
@@ -111,6 +112,10 @@ function onUpdatesDone(payload) {
     state.selection.delete(r.key);
     const item = itemByKey(r.key);
     const job = run.entries.get(r.key)?.job;
+    if (job?.action?.type === 'uninstall') {
+      state.items = state.items.filter((i) => i.key !== r.key);
+      continue;
+    }
     if (item && job && job.action?.type !== 'install_version') {
       replaceItem({
         ...item, kind: 'up_to_date', installedVersion: job.toVersion ?? item.availableVersion ?? item.installedVersion,
@@ -210,6 +215,39 @@ export async function openStoreUpdates() {
   catch (err) { toast(t('links.openFailed', { error: errorText(err) }), { tone: 'danger' }); }
 }
 
+const MANAGERS = { winget: 'winget', ms_store: 'winget', chocolatey: 'Chocolatey', scoop: 'Scoop' };
+
+/** Uninstalls through the package manager, after a confirmation. Resolves to true when started. */
+export async function uninstallItem(item, manager) {
+  const name = item.name || item.id;
+  const ok = await confirmDialog({
+    title: t('uninstall.confirmTitle', { name }),
+    text: t('uninstall.confirmText', { name, manager: manager || MANAGERS[item.source] || 'winget' }),
+    confirmLabel: t('uninstall.confirm'), cancelLabel: t('common.cancel'), danger: true, icon: 'trash',
+  });
+  if (!ok) return false;
+  startJobs([buildJob(item, { type: 'uninstall' }, { toVersion: null, includeUnknown: false, downloadSize: null })]);
+  return true;
+}
+
+/** Starts the program's own uninstaller (registry entry). */
+export async function runUninstaller(item) {
+  try {
+    await invoke('run_uninstaller', { key: item.uninstallKey });
+    toast(t('uninstall.started', { name: item.name || item.id }), { duration: 6000 });
+  } catch (err) {
+    const code = String(errorText(err));
+    const key = `uninstall.errors.${code}`;
+    toast(['not_installed', 'no_uninstaller'].includes(code) ? t(key) : t('links.openFailed', { error: code }), { tone: 'danger', duration: 6000 });
+  }
+}
+
+/** Settings › Installed apps, or the classic "Programs and Features". */
+export async function openInstalledApps(classic = false) {
+  try { await invoke('open_installed_apps', { classic }); toast(t(classic ? 'uninstall.classicOpened' : 'uninstall.settingsOpened'), { duration: 4000 }); }
+  catch (err) { toast(t('links.openFailed', { error: errorText(err) }), { tone: 'danger' }); }
+}
+
 /** Settings › Windows Update: `check` starts a search, `optional` lists optional updates. */
 export async function openWindowsUpdate(page = 'check') {
   try { await invoke('open_windows_update', { page }); toast(t(page === 'optional' ? 'wu.openedOptional' : 'wu.opened'), { duration: 3200 }); }
@@ -263,7 +301,7 @@ export async function startJobs(jobs, opts = {}) {
       jobs = jobs.filter((j) => !keys.includes(j.key));
       toast(t('closeApps.skippedNever', { count: keys.length }), { duration: 4500 });
     } else {
-      const choice = await closeAppsDialog(running);
+      const choice = await closeAppsDialog(running, { uninstall: jobs.every((j) => j.action?.type === 'uninstall') });
       if (!choice) return false;
       if (choice.action === 'close') {
         closeApps = keys;

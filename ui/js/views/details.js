@@ -7,9 +7,11 @@ import { t, fmt } from '../i18n.js';
 import { state, itemByKey, runActive } from '../state.js';
 import {
   kindOf, priorityOf, describeReason, reasonsOf, alternativesOf, runningOf, installedVersionInfo,
-  availableVersionOf, sourceInfo, buildJob, needsElevation, categoryInfo, normSource, isSelectable, originName,
+  availableVersionOf, sourceInfo, buildJob, needsElevation, categoryInfo, normSource, isSelectable, originName, categoryOf,
 } from '../model.js';
-import { startJobs, ignoreItem, unignore, openUrl, openStoreUpdates, webSearchUrl } from '../actions.js';
+import {
+  startJobs, ignoreItem, unignore, openUrl, openStoreUpdates, webSearchUrl, uninstallItem, runUninstaller, openInstalledApps,
+} from '../actions.js';
 import { avatar } from '../components/avatar.js';
 import { button, iconButton, badge, infoDot } from '../components/widgets.js';
 import { chooseVersion, searchWinget } from '../components/versions.js';
@@ -138,6 +140,9 @@ function render(item) {
   const actions = actionsFor(item, kind);
   if (actions.length) body.append(section(t('details.actions'), null, h('div', { class: 'action-list' }, actions)));
 
+  const uninstall = uninstallSection(item, kind);
+  if (uninstall) body.append(uninstall);
+
   const links = linksFor(item);
   if (links.length) body.append(section(t('details.links'), [t('details.links'), t('details.linksTip')], h('div', { class: 'link-list' }, links)));
 
@@ -192,6 +197,77 @@ function actionCard({ ic, title, text, control, tone, stacked }) {
       text ? h('p', { class: 'caption muted' }, text) : null,
       stacked && control ? h('div', { class: 'action-stack' }, control) : null),
     stacked ? null : control || null);
+}
+
+// ------------------------------------------------------------------ uninstall
+
+const MANAGER_NAMES = { winget: 'winget', chocolatey: 'Chocolatey', scoop: 'Scoop' };
+
+/** How this program is best removed: its package manager, its own
+ * uninstaller (registry), or Windows Settings (Store apps). */
+function uninstallMethod(item) {
+  const src = normSource(item.source);
+  if (MANAGER_NAMES[src]) return src;
+  if (src === 'ms_store' || src === 'msix' || categoryOf(item) === 'store_app') return 'settings';
+  return item.uninstallKey ? 'uninstaller' : 'settings';
+}
+
+function uninstallSection(item, kind) {
+  if (!['update', 'manual', 'unmanaged', 'up_to_date'].includes(kind)) return null;
+  const busy = runActive();
+  const busyTip = busy ? t('run.alreadyRunning') : null;
+  const method = uninstallMethod(item);
+  const name = item.name || item.id;
+  const cards = [];
+
+  if (MANAGER_NAMES[method]) {
+    const manager = MANAGER_NAMES[method];
+    cards.push(actionCard({
+      ic: 'trash', title: t('uninstall.withManager', { manager }), text: t('uninstall.withManagerText', { manager }),
+      control: button({
+        label: t('uninstall.button'), icon: 'trash', size: 'small', disabled: busy,
+        tip: [t('uninstall.withManager', { manager }), busyTip || t('uninstall.withManagerTip', { manager })],
+        onClick: async () => { if (await uninstallItem(item, manager)) closeDetails(true); },
+      }),
+    }));
+  } else if (method === 'uninstaller') {
+    cards.push(actionCard({
+      ic: 'trash', title: t('uninstall.ownUninstaller'), text: t('uninstall.ownUninstallerText'),
+      control: button({ label: t('uninstall.buttonOwn'), icon: 'trash', size: 'small', tip: [t('uninstall.ownUninstaller'), t('uninstall.ownUninstallerTip')], onClick: () => runUninstaller(item) }),
+    }));
+  } else {
+    cards.push(actionCard({
+      ic: 'settings', title: t('uninstall.fromSettings'), text: t('uninstall.fromSettingsText', { name }),
+      control: button({ label: t('uninstall.openSettings'), icon: 'external', size: 'small', tip: [t('uninstall.openSettings'), t('uninstall.openSettingsTip')], onClick: () => openInstalledApps(false) }),
+    }));
+  }
+
+  const cat = categoryOf(item);
+  const by = categoryInfo(item).by || '…';
+  const notes = {
+    system_component: ['warning', 'uninstall.cautionComponent'],
+    driver: ['warning', 'uninstall.cautionDriver'],
+    game: ['info', 'uninstall.noteGame'],
+    web_app: ['info', 'uninstall.noteWebApp'],
+  };
+  if (notes[cat]) {
+    const [ic, key] = notes[cat];
+    cards.push(actionCard({ ic, tone: ic === 'warning' ? 'warning' : null, title: t(`${key}Title`, { by }), text: t(key, { by }) }));
+  }
+
+  cards.push(actionCard({
+    ic: 'list', title: t('uninstall.otherWays'), text: t('uninstall.otherWaysText'), stacked: true,
+    control: h('div', { class: 'row-flex wrap' },
+      method !== 'uninstaller' && item.uninstallKey
+        ? button({ label: t('uninstall.buttonOwn'), size: 'small', variant: 'subtle', tip: [t('uninstall.ownUninstaller'), t('uninstall.ownUninstallerTip')], onClick: () => runUninstaller(item) })
+        : null,
+      method !== 'settings'
+        ? button({ label: t('uninstall.openSettings'), icon: 'external', size: 'small', variant: 'subtle', tip: [t('uninstall.openSettings'), t('uninstall.openSettingsTip')], onClick: () => openInstalledApps(false) })
+        : null,
+      button({ label: t('uninstall.openClassic'), icon: 'external', size: 'small', variant: 'subtle', tip: [t('uninstall.openClassic'), t('uninstall.openClassicTip')], onClick: () => openInstalledApps(true) })),
+  }));
+
+  return section(t('uninstall.title'), [t('uninstall.title'), t('uninstall.info')], h('div', { class: 'action-list' }, cards));
 }
 
 function actionsFor(item, kind) {

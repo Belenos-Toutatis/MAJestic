@@ -276,6 +276,10 @@ pub struct UpdateItem {
     pub running: Vec<RunningProcess>,
     /// The user chose to ignore this package (or this exact available version).
     pub ignored: bool,
+    /// Registry entry with an uninstaller (`HKLM64\<key>`...), for
+    /// `run_uninstaller`.
+    #[serde(default)]
+    pub uninstall_key: Option<String>,
     /// Folders of the program's executables (not sent to the UI): used to
     /// find its running processes right before updating it.
     #[serde(skip)]
@@ -308,6 +312,7 @@ impl UpdateItem {
             alternatives: Vec::new(),
             running: Vec::new(),
             ignored: false,
+            uninstall_key: None,
             install_dirs: Vec::new(),
         }
     }
@@ -482,6 +487,8 @@ pub enum JobAction {
     Interactive,
     /// Ask the Microsoft Store to update its apps.
     StoreUpdateScan,
+    /// Remove the program with its package manager.
+    Uninstall,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

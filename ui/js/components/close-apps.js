@@ -9,7 +9,7 @@ import { badge, infoDot } from './widgets.js';
 import { itemByKey } from '../state.js';
 
 /** Resolves { action: 'close' | 'skip', dontAsk } or null (cancelled). */
-export async function closeAppsDialog(running) {
+export async function closeAppsDialog(running, { uninstall = false } = {}) {
   let dontAsk = false;
   const withWindows = running.some((r) => (r.processes || []).some((p) => p.hasWindow));
 
@@ -38,20 +38,22 @@ export async function closeAppsDialog(running) {
   }, dontAskBox, t('closeApps.dontAsk'));
 
   const value = await openDialog({
-    title: t('closeApps.title', { count: running.length }),
+    title: t(uninstall ? 'closeApps.uninstallTitle' : 'closeApps.title', { count: running.length }),
     icon: 'activity',
     width: 580,
     body: [
-      h('p', null, t('closeApps.intro', { count: running.length }), infoDot(t('closeApps.howTitle'), t('closeApps.howTip'))),
+      h('p', null, t(uninstall ? 'closeApps.uninstallIntro' : 'closeApps.intro', { count: running.length }), infoDot(t('closeApps.howTitle'), t('closeApps.howTip'))),
       withWindows ? h('div', { class: 'close-warning' }, icon('warning'), h('span', null, t('closeApps.unsavedWarning'))) : null,
       list,
-      dontAskLine,
+      uninstall ? null : dontAskLine,
     ],
     actions: [
       { label: t('common.cancel'), value: null, tip: [t('common.cancel'), t('closeApps.cancelTip')] },
-      { label: t('closeApps.skip', { count: running.length }), value: 'skip', tip: [t('closeApps.skip', { count: running.length }), t('closeApps.skipTip')] },
-      { label: t('closeApps.close'), value: 'close', variant: 'primary', icon: 'updates', autofocus: true, tip: [t('closeApps.close'), t('closeApps.closeTip')] },
-    ],
+      uninstall ? null : { label: t('closeApps.skip', { count: running.length }), value: 'skip', tip: [t('closeApps.skip', { count: running.length }), t('closeApps.skipTip')] },
+      uninstall
+        ? { label: t('closeApps.uninstallClose'), value: 'close', variant: 'primary', icon: 'trash', autofocus: true, tip: [t('closeApps.uninstallClose'), t('closeApps.uninstallCloseTip')] }
+        : { label: t('closeApps.close'), value: 'close', variant: 'primary', icon: 'updates', autofocus: true, tip: [t('closeApps.close'), t('closeApps.closeTip')] },
+    ].filter(Boolean),
   });
   if (!value) return null;
   return { action: value, dontAsk: value === 'close' && dontAsk };

@@ -13,7 +13,7 @@ import { toast } from '../components/toast.js';
 import { icon } from '../icons.js';
 
 const RESULT_TONES = { succeeded: 'success', failed: 'danger', cancelled: 'uncertain', skipped: 'uncertain' };
-const ACTIONS = ['install_version', 'force_reinstall', 'interactive', 'store_update_scan'];
+const ACTIONS = ['install_version', 'force_reinstall', 'interactive', 'store_update_scan', 'uninstall'];
 const actionKey = (a) => (ACTIONS.includes(a) ? a : 'install_version');
 const focusable = (el) => { el.tabIndex = 0; return el; };
 
@@ -101,7 +101,9 @@ export function mountHistory(container) {
           h('span', { class: 'strong ellipsis' }, e.name || e.id || e.key),
           h('span', { class: 'source-badge', tip: src.tip, tabindex: 0 }, icon(src.icon), src.label),
           action !== 'upgrade' ? focusable(badge({ text: t(`progress.action.${actionKey(action)}`), outline: true, tip: [t('history.actionTitle'), t(`progress.action.${actionKey(action)}Tip`)] })) : null)),
-      h('td', { class: 'ver h-ver' }, e.fromVersion || e.toVersion
+      h('td', { class: 'ver h-ver' }, action === 'uninstall'
+        ? [h('span', { class: 'nowrap' }, e.fromVersion || t('version.unknown')), ' ', h('span', { class: 'nowrap' }, h('span', { class: 'arrow-inline' }, '→ '), h('strong', null, t('uninstall.done')))]
+        : e.fromVersion || e.toVersion
         ? [h('span', { class: 'nowrap' }, e.fromVersion || t('version.unknown')), ' ', h('span', { class: 'nowrap' }, h('span', { class: 'arrow-inline' }, '→ '), h('strong', null, e.toVersion || '?'))]
         : '—'),
       h('td', null,

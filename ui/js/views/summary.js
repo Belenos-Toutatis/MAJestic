@@ -58,13 +58,16 @@ export function mountSummary(container) {
     h('span', { class: 'sum-emblem-ic' }, icon(allGood ? 'crown' : failed.length ? 'warning' : 'success')));
 
   const onlyUpgrades = entries.every((e) => (e.job.action?.type || 'upgrade') === 'upgrade');
+  const onlyUninstalls = entries.every((e) => e.job.action?.type === 'uninstall');
+  const okLabel = (count) => t(onlyUninstalls ? 'summary.uninstalledCount' : 'summary.okCount', { count });
   let title;
-  if (allGood) title = onlyUpgrades ? t('summary.allGood', { count: ok.length }) : t('summary.allGoodOther', { count: ok.length });
+  if (allGood && onlyUninstalls) title = t('summary.allGoodUninstall', { count: ok.length });
+  else if (allGood) title = onlyUpgrades ? t('summary.allGood', { count: ok.length }) : t('summary.allGoodOther', { count: ok.length });
   else if (!ok.length && failed.length && !skipped.length) title = t('summary.allFailed', { count: failed.length });
   else if (!ok.length && !failed.length) title = t('summary.nothingDone');
   else {
     title = [
-      ok.length ? t('summary.okCount', { count: ok.length }) : null,
+      ok.length ? okLabel(ok.length) : null,
       failed.length ? t('summary.failCount', { count: failed.length }) : null,
       skipped.length ? t('summary.skippedCount', { count: skipped.length }) : null,
     ].filter(Boolean).join(', ');
@@ -72,16 +75,19 @@ export function mountSummary(container) {
   }
 
   const stats = h('div', { class: 'sum-stats' },
-    h('span', { class: 'pg-chip ok', tabindex: 0, tip: [t('progress.okTitle'), t('progress.okTip')] }, icon('success'), t('summary.okCount', { count: ok.length })),
+    h('span', { class: 'pg-chip ok', tabindex: 0, tip: [t('progress.okTitle'), t('progress.okTip')] }, icon('success'), okLabel(ok.length)),
     failed.length ? h('span', { class: 'pg-chip fail has', tabindex: 0, tip: [t('progress.failTitle'), t('summary.failTip')] }, icon('error'), t('summary.failCount', { count: failed.length })) : null,
     skipped.length ? h('span', { class: 'pg-chip', tabindex: 0, tip: [t('summary.skippedTitle'), t('summary.skippedTip')] }, icon('minus'), t('summary.skippedCount', { count: skipped.length })) : null,
     h('span', { class: 'pg-chip', tabindex: 0, tip: [t('summary.durationTitle'), t('summary.durationTip')] }, icon('clock'), fmt.duration(duration)));
 
-  const hero = h('section', { class: ['sum-hero', allGood ? 'is-celebrating' : null] },
+  const lead = allGood && onlyUninstalls ? t('summary.allGoodUninstallText', { count: ok.length })
+    : allGood ? (onlyUpgrades ? t('summary.allGoodText') : t('summary.allGoodOtherText'))
+      : failed.length ? t('summary.failText') : t('summary.neutralText');
+  const hero = h('section', { class: ['sum-hero', allGood && !onlyUninstalls ? 'is-celebrating' : null] },
     emblem,
     h('div', { class: 'sum-head' },
       h('h1', null, title),
-      h('p', { class: 'lead' }, allGood ? (onlyUpgrades ? t('summary.allGoodText') : t('summary.allGoodOtherText')) : failed.length ? t('summary.failText') : t('summary.neutralText')),
+      h('p', { class: 'lead' }, lead),
       stats));
 
   const body = h('div', { class: 'sum-body' });
@@ -118,7 +124,7 @@ export function mountSummary(container) {
 
   if (ok.length) {
     body.append(h('details', { class: 'sum-section sum-fold', open: !failed.length && ok.length <= 6 },
-      h('summary', { tip: [t('summary.okListTitle'), t('summary.okListTip')] }, icon('chevron-right'), h('h2', null, t('summary.okList', { count: ok.length }))),
+      h('summary', { tip: [t('summary.okListTitle'), t('summary.okListTip')] }, icon('chevron-right'), h('h2', null, t(onlyUninstalls ? 'summary.uninstalledList' : 'summary.okList', { count: ok.length }))),
       h('ul', { class: 'ok-list' }, ok.map((e) => {
         const item = itemByKey(e.job.key) || { name: e.job.name, key: e.job.key };
         const secs = e.startedAt && e.finishedAt ? (e.finishedAt - e.startedAt) / 1000 : null;
@@ -126,7 +132,9 @@ export function mountSummary(container) {
           h('span', { class: 'pg-ic ok static', html: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="ic-circle" cx="12" cy="12" r="10"/><path class="ic-check" d="M7.4 12.4l3.1 3.1 6.1-6.3"/></svg>' }),
           avatar(item),
           h('span', { class: 'strong ellipsis grow' }, e.job.name),
-          h('span', { class: 'caption subtle ver' }, e.job.fromVersion || e.job.toVersion ? `${e.job.fromVersion || t('version.unknown')} → ${e.job.toVersion || '?'}` : ''),
+          h('span', { class: 'caption subtle ver' }, e.job.action?.type === 'uninstall'
+            ? t('uninstall.done')
+            : e.job.fromVersion || e.job.toVersion ? `${e.job.fromVersion || t('version.unknown')} → ${e.job.toVersion || '?'}` : ''),
           e.state.rebootRequired ? badge({ text: t('summary.rebootBadge'), tone: 'gold', icon: 'restart', tip: [t('summary.rebootTitle'), t('summary.rebootBadgeTip')] }) : null,
           secs ? h('span', { class: 'caption subtle num', tip: [t('summary.itemDurationTitle'), t('summary.itemDurationTip')] }, fmt.duration(secs)) : null);
       }))));
@@ -156,7 +164,7 @@ export function mountSummary(container) {
 
   const scroll = h('div', { class: 'view-scroll' }, hero, body);
   view.append(scroll);
-  if (allGood) requestAnimationFrame(() => sparkles(hero));
+  if (allGood && !onlyUninstalls) requestAnimationFrame(() => sparkles(hero));
   setTimeout(() => view.querySelector('.sum-foot .btn.royal')?.focus({ preventScroll: true }), 400);
   return () => {};
 }

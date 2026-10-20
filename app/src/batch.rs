@@ -395,7 +395,11 @@ fn run(app: &AppHandle, jobs: Vec<JobRequest>, close_apps: Vec<String>, allow_el
         emit_job(app, &final_ev);
         emit_queue(app, &shared);
         record(job, &state, timings);
-        relaunch(&to_relaunch);
+        // An uninstalled program is not started again.
+        let removed = job.action == JobAction::Uninstall && matches!(state, JobState::Succeeded { .. });
+        if !removed {
+            relaunch(&to_relaunch);
+        }
         results.push(JobResult { key: job.key.clone(), state });
     }
 

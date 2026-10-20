@@ -50,16 +50,21 @@ pub fn open_url(url: &str) -> anyhow::Result<()> {
 }
 
 fn shell_open(url: &str) -> anyhow::Result<()> {
+    shell_execute(url, "")
+}
+
+fn shell_execute(file: &str, params: &str) -> anyhow::Result<()> {
     let _com = ComGuard::new();
     let operation = wide("open");
-    let file = wide(url);
-    // SAFETY: both strings are NUL-terminated and outlive the call.
+    let file_w = wide(file);
+    let params_w = wide(params);
+    // SAFETY: the strings are NUL-terminated and outlive the call.
     let result = unsafe {
         ShellExecuteW(
             None,
             PCWSTR(operation.as_ptr()),
-            PCWSTR(file.as_ptr()),
-            PCWSTR::null(),
+            PCWSTR(file_w.as_ptr()),
+            if params.is_empty() { PCWSTR::null() } else { PCWSTR(params_w.as_ptr()) },
             PCWSTR::null(),
             SW_SHOWNORMAL,
         )
@@ -69,7 +74,53 @@ fn shell_open(url: &str) -> anyhow::Result<()> {
     if code > 32 {
         Ok(())
     } else {
-        anyhow::bail!("cannot open {url} (ShellExecuteW error {code})")
+        anyhow::bail!("cannot open {file} (ShellExecuteW error {code})")
+    }
+}
+
+/// The classic Control Panel page "Programs and Features".
+pub fn open_programs_and_features() -> anyhow::Result<()> {
+    shell_execute("control.exe", "appwiz.cpl")
+}
+
+/// Starts a program's own uninstaller (its registry `UninstallString`), as
+/// Settings › Apps does; the uninstaller asks for administrator rights itself
+/// when it needs them. Windows Installer packages are run with `/X` (remove)
+/// rather than `/I` (maintenance screen).
+pub fn run_uninstaller(command: &str, windows_installer: bool) -> anyhow::Result<()> {
+    let (file, args) = split_command(command).ok_or_else(|| anyhow::anyhow!("empty uninstall command"))?;
+    let msi = windows_installer || file.to_ascii_lowercase().trim_end_matches(".exe").ends_with("msiexec");
+    let args = if msi { msi_remove(&args) } else { args };
+    log::info!("starting uninstaller: {file} {args}");
+    shell_execute(&file, &args)
+}
+
+/// `"C:\x\unins000.exe" /S` → (`C:\x\unins000.exe`, `/S`); unquoted paths
+/// end at `.exe`; anything else (`steam://uninstall/440`) is taken whole.
+fn split_command(command: &str) -> Option<(String, String)> {
+    let c = command.trim();
+    if c.is_empty() {
+        return None;
+    }
+    if let Some(rest) = c.strip_prefix('"') {
+        let end = rest.find('"')?;
+        return Some((rest[..end].to_string(), rest[end + 1..].trim().to_string()));
+    }
+    if let Some(pos) = c.to_ascii_lowercase().find(".exe") {
+        let end = pos + 4;
+        if c[end..].is_empty() || c[end..].starts_with(' ') {
+            return Some((c[..end].to_string(), c[end..].trim().to_string()));
+        }
+    }
+    Some((c.to_string(), String::new()))
+}
+
+/// `/I{GUID}` (maintenance) → `/X{GUID}` (remove).
+fn msi_remove(args: &str) -> String {
+    let t = args.trim();
+    match t.get(..2) {
+        Some(p) if p.eq_ignore_ascii_case("/I") => format!("/X{}", &t[2..]),
+        _ => t.to_string(),
     }
 }
 
@@ -218,6 +269,19 @@ fn describe_os(product: Option<&str>, build: Option<&str>, display_version: Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn uninstall_commands() {
+        let s = split_command;
+        assert_eq!(s(r#""C:\Program Files\App\unins000.exe" /SILENT"#), Some((r"C:\Program Files\App\unins000.exe".into(), "/SILENT".into())));
+        assert_eq!(s(r"C:\Program Files\App\uninst.exe /S"), Some((r"C:\Program Files\App\uninst.exe".into(), "/S".into())));
+        assert_eq!(s("MsiExec.exe /I{1234-ABCD}"), Some(("MsiExec.exe".into(), "/I{1234-ABCD}".into())));
+        assert_eq!(s("steam://uninstall/440"), Some(("steam://uninstall/440".into(), String::new())));
+        assert_eq!(s("  "), None);
+        assert_eq!(msi_remove("/I{1234-ABCD}"), "/X{1234-ABCD}");
+        assert_eq!(msi_remove("/x{1234}"), "/x{1234}");
+        assert_eq!(msi_remove("/qb"), "/qb");
+    }
 
     // `open_url` and `reveal` are not called: they would open windows.
 

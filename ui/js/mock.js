@@ -529,6 +529,14 @@ const handlers = {
     console.info('[mock] open_logs');
     return null;
   },
+  async run_uninstaller({ key }) {
+    console.info('[mock] run_uninstaller', key);
+    return null;
+  },
+  async open_installed_apps({ classic }) {
+    console.info('[mock] open_installed_apps', classic);
+    return null;
+  },
   async get_windows_updates() {
     return lastWindowsUpdates;
   },

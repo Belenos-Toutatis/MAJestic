@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use majestic_core::eta::EtaModel;
 use majestic_core::model::*;
 use majestic_core::settings::Settings;
-use majestic_core::system::{elevation, icons, procs, shell};
+use majestic_core::system::{elevation, icons, procs, registry, shell};
 use majestic_core::{history, paths, pkgmgr, scan, scheduler, winget};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -174,6 +174,30 @@ fn search_windows_updates(app: &AppHandle, online: bool) {
 #[tauri::command]
 pub fn get_windows_updates(state: State<'_, AppState>) -> Option<WindowsUpdates> {
     state.windows_updates.lock().ok().and_then(|w| w.clone())
+}
+
+/// Starts the uninstaller of the registry entry `key` (`UpdateItem.uninstallKey`,
+/// read again from the registry: the UI never passes a command line), the
+/// program's own uninstaller as Settings › Apps would.
+#[tauri::command]
+pub async fn run_uninstaller(key: String) -> Result<(), String> {
+    blocking(move || {
+        let program = registry::installed_programs()
+            .into_iter()
+            .find(|p| p.reg_id() == key)
+            .ok_or_else(|| "not_installed".to_string())?;
+        let command = program.uninstall_string.clone().filter(|s| !s.trim().is_empty()).ok_or_else(|| "no_uninstaller".to_string())?;
+        shell::run_uninstaller(&command, program.windows_installer).map_err(|e| format!("{e:#}"))
+    })
+    .await?
+}
+
+/// Opens Settings › Apps › Installed apps, or the classic Control Panel page
+/// "Programs and Features" when `classic`.
+#[tauri::command]
+pub fn open_installed_apps(classic: bool) -> Result<(), String> {
+    let opened = if classic { shell::open_programs_and_features() } else { shell::open_settings(shell::SettingsPage::InstalledApps) };
+    opened.map_err(|e| format!("{e:#}"))
 }
 
 /// Opens Settings › Windows Update: `check` starts a search, `optional`

@@ -66,6 +66,8 @@ Argument names are camelCase on the JS side.
 | `open_store_updates` | – | `null` |
 | `open_logs` | – | `null` |
 | `get_windows_updates` | – | `WindowsUpdates \| null` (last answer of Windows Update, searched in the background after each scan) |
+| `run_uninstaller` | `{ key }` | `null`; starts the program's own uninstaller (registry entry `UpdateItem.uninstallKey`, read again from the registry; MSI `/I` becomes `/X`); errors `not_installed`, `no_uninstaller` |
+| `open_installed_apps` | `{ classic }` | `null`; Settings › Installed apps, or the classic "Programs and Features" |
 | `open_windows_update` | `{ page }` | `null`; opens Settings › Windows Update and starts a search (`check`), or the optional updates (`optional`) |
 | `check_app_update` | – | `{ version, pageUrl, notes, size } \| null` (newer MAJestic on GitHub; `null` when offline or online sources are off) |
 | `install_app_update` | – | never returns on success: the new version starts and this one exits; error `{ kind, message }` (`busy`, `not_checked`, `network`, `hash_mismatch`, `version_mismatch`, `write_denied`, `swap_failed`, `restart_failed`) |
@@ -86,7 +88,7 @@ Argument names are camelCase on the JS side.
 
 ```js
 { key, source, id, name,
-  action: { type: "upgrade" },            // or {type:"install_version", version}, {type:"force_reinstall"}, {type:"interactive"}
+  action: { type: "upgrade" },            // or {type:"install_version", version}, {type:"force_reinstall"}, {type:"interactive"}, {type:"uninstall"}
   fromVersion: item.installedVersion, toVersion: item.availableVersion,
   scope: item.scope,
   includeUnknown: item.versionCertainty !== "exact",

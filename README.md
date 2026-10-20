@@ -58,6 +58,10 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
   (sécurité, pilotes, antivirus Defender) et signale un redémarrage nécessaire,
   avec un bouton qui ouvre Windows Update et lance la recherche. C'est Windows qui
   les installe, comme d'habitude.
+- **Désinstaller proprement** : le panneau de chaque logiciel propose la bonne
+  méthode (winget, Chocolatey ou Scoop quand ils l'ont installé, sinon le
+  désinstalleur du logiciel lui-même), plus les écrans de Windows « Applications
+  installées » et « Programmes et fonctionnalités ».
 - **Revenir à une version précédente** depuis l'historique (winget et Chocolatey).
 - **Vérification planifiée** (quotidienne, hebdomadaire ou mensuelle) avec une
   notification Windows quand une mise à jour importante est disponible.
@@ -178,6 +182,9 @@ leurs sources habituelles, et seulement quand vous les lancez.
   explains itself with a tooltip.
 - Updates itself in one click when a new version is out (SHA-256 checked before
   anything is replaced; settings and history kept).
+- Uninstalls the right way from each program's panel: winget, Chocolatey or Scoop
+  when they installed it, otherwise the program's own uninstaller, plus Windows'
+  “Installed apps” and “Programs and Features” screens.
 - Shows what Windows Update has waiting (security, drivers, Defender) and pending
   restarts, with a button that opens Windows Update and starts a search; Windows
   installs them as usual.

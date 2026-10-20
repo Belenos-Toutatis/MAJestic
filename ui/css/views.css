@@ -516,6 +516,7 @@ button.strip-seg:hover { background: var(--surface-hover); }
 .action-ic svg { width: 18px; height: 18px; }
 .action-card.tone-accent .action-ic { background: var(--accent-soft); color: var(--accent-text); }
 .action-card.tone-manual .action-ic { background: var(--manual-soft); color: var(--manual-text); }
+.action-card.tone-warning .action-ic { background: var(--warning-soft); color: var(--warning); }
 .row-flex.end { justify-content: flex-end; }
 
 .link-list { display: flex; flex-wrap: wrap; gap: 6px; }

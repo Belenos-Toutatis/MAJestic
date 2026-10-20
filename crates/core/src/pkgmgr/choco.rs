@@ -93,6 +93,10 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
         bail!("{} packages are not handled by Chocolatey", job.source.as_str());
     }
     check_id(&job.id)?;
+    if job.action == JobAction::Uninstall {
+        let args = ["uninstall", &job.id, "-y", "--no-progress", "--limit-output"].iter().map(|s| s.to_string()).collect();
+        return Ok(CommandSpec { program: PROGRAM.to_string(), args });
+    }
     let mut args: Vec<String> =
         ["upgrade", &job.id, "-y", "--no-progress", "--limit-output"].iter().map(|s| s.to_string()).collect();
     match &job.action {
@@ -105,6 +109,7 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
         // Let the installer show its own interface.
         JobAction::Interactive => args.push("--not-silent".to_string()),
         JobAction::StoreUpdateScan => bail!("the Store update scan is not a Chocolatey command"),
+        JobAction::Uninstall => unreachable!("handled above"),
     }
     Ok(CommandSpec { program: PROGRAM.to_string(), args })
 }
@@ -190,6 +195,7 @@ mod tests {
         );
 
         assert_eq!(build_command(&job(JobAction::ForceReinstall)).unwrap().args.last().unwrap(), "--force");
+        assert_eq!(build_command(&job(JobAction::Uninstall)).unwrap().args[..2], ["uninstall".to_string(), job(JobAction::Upgrade).id]);
         assert!(build_command(&job(JobAction::InstallVersion { version: "-1".into() })).is_err());
         assert!(build_command(&job(JobAction::StoreUpdateScan)).is_err());
 

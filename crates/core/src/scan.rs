@@ -120,6 +120,9 @@ fn attach_program(item: &mut UpdateItem, p: &InstalledProgram) {
     item.links.homepage = item.links.homepage.take().or_else(|| p.url_info_about.clone());
     item.links.download = item.links.download.take().or_else(|| p.url_update_info.clone());
     item.links.support = item.links.support.take().or_else(|| p.help_link.clone());
+    if p.uninstall_string.as_deref().is_some_and(|s| !s.trim().is_empty()) {
+        item.uninstall_key = Some(p.reg_id());
+    }
 }
 
 /// Sets installed version and certainty from what the package manager printed.

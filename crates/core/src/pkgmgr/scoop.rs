@@ -67,6 +67,7 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
             vec!["install".to_string(), format!("{}@{version}", job.id)]
         }
         JobAction::StoreUpdateScan => bail!("the Store update scan is not a Scoop command"),
+        JobAction::Uninstall => vec!["uninstall".to_string(), job.id.clone()],
     };
     let launcher = launcher().ok_or_else(|| anyhow!("Scoop is not installed"))?;
     Ok(launcher.command(&args.iter().map(String::as_str).collect::<Vec<_>>()))

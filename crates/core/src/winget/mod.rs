@@ -222,6 +222,13 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
             push(&["install", "--id", &job.id, "--exact", "--source", source, "--force"]);
         }
         JobAction::StoreUpdateScan => bail!("the Store update scan is not a winget command"),
+        JobAction::Uninstall => {
+            // No package agreements for an uninstallation.
+            push(&["uninstall", "--id", &job.id, "--exact", "--source", source]);
+            push(COMMON_FLAGS);
+            push(&["--silent"]);
+            return Ok(CommandSpec { program: PROGRAM.to_string(), args });
+        }
     }
     push(&["--accept-package-agreements"]);
     push(COMMON_FLAGS);
@@ -474,6 +481,16 @@ mod tests {
     fn args(spec: &CommandSpec) -> String {
         assert_eq!(spec.program, "winget");
         spec.args.join(" ")
+    }
+
+    #[test]
+    fn uninstall_command() {
+        let spec = build_command(&job(Source::Winget, "Notepad++.Notepad++", JobAction::Uninstall)).unwrap();
+        assert_eq!(
+            args(&spec),
+            "uninstall --id Notepad++.Notepad++ --exact --source winget \
+             --accept-source-agreements --disable-interactivity --silent"
+        );
     }
 
     #[test]

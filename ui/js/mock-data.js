@@ -27,6 +27,8 @@ function item(o) {
     alternatives: [],
     running: [],
     ignored: false,
+    // Registry entry with an uninstaller (every mock program has one).
+    uninstallKey: `HKLM64\\${o.id}`,
     ...o,
   };
 }

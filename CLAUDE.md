@@ -46,7 +46,7 @@ cargo run -p majestic-core --example scan -- --json      # analyse complète (--
 cargo run -p majestic-core --example job -- <source> <id> [version] [--from V --to V]
 cargo run -p majestic-core --example stream -- winget download --id X -d C:\tmp
 cargo run -p majestic-core --example selfupdate -- <copie\MAJestic.exe> 0.1.0   # auto-MAJ sans fenêtre
-python -m http.server -d ui            # interface dans un navigateur, backend simulé (.claude/launch.json : « ui-mock »)
+python -m http.server -d ui            # interface dans un navigateur, backend simulé (.claude/launch.json : « ui-mock », sans cache)
 ```
 
 - Fermer `MAJestic.exe` avant de recompiler (sinon « Accès refusé », exe verrouillé).
@@ -120,6 +120,13 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `cac
   traduits), redémarrage en attente, dates de Windows. MAJestic **n'installe pas** ces
   mises à jour : bouton `ms-settings:windowsupdate-action` (ou `-optionalupdates`).
   Une recherche hors ligne prend ~15 s, en ligne bien plus. Mock : `?wu=none|error|reboot`.
+- **Désinstallation** (panneau détails) : la bonne méthode d'abord — `JobAction::Uninstall`
+  par winget / Chocolatey / Scoop (file de travaux habituelle, historique, pas de
+  relance du logiciel), sinon `run_uninstaller` (le `UninstallString` du registre,
+  relu côté Rust à partir de `uninstallKey`, MSI `/I` → `/X`), sinon Paramètres ›
+  Applications installées (apps du Store) ; toujours aussi « Programmes et
+  fonctionnalités ». Les vraies désinstallations ne se testent qu'avec l'accord de
+  l'utilisateur.
 - **Retour arrière** : winget, Microsoft Store et Chocolatey (`choco::list_versions`).
 - **Vérification planifiée** : tâche « MAJestic UpdateCheck » (XML UTF-16 LE avec BOM,
   `StartWhenAvailable`, lance `--check`). Toasts via l'AUMID `MAJestic.UpdateAssistant`
