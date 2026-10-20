@@ -30,6 +30,34 @@ pub fn settings_file() -> PathBuf {
     data_dir().join("settings.json")
 }
 
+/// `downloads` or `temp` when `exe` sits in a folder that is often emptied
+/// (a scheduled task pointing there would soon break).
+pub fn volatile_location(exe: &std::path::Path) -> Option<&'static str> {
+    let lower = |p: &std::path::Path| p.to_string_lossy().to_lowercase();
+    let exe = lower(exe);
+    if dirs::download_dir().is_some_and(|d| exe.starts_with(&lower(&d))) {
+        return Some("downloads");
+    }
+    if exe.starts_with(&lower(&std::env::temp_dir())) {
+        return Some("temp");
+    }
+    None
+}
+
 pub fn history_file() -> PathBuf {
     data_dir().join("history.jsonl")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn volatile_locations() {
+        if let Some(downloads) = dirs::download_dir() {
+            assert_eq!(volatile_location(&downloads.join("MAJestic.exe")), Some("downloads"));
+        }
+        assert_eq!(volatile_location(&std::env::temp_dir().join("x").join("MAJestic.exe")), Some("temp"));
+        assert_eq!(volatile_location(std::path::Path::new(r"C:\Tools\MAJestic\MAJestic.exe")), None);
+    }
 }

@@ -77,23 +77,92 @@ fn current_exe() -> Result<std::path::PathBuf, String> {
 #[tauri::command]
 pub async fn save_settings(settings: Settings) -> Result<Settings, String> {
     blocking(move || {
-        let previous = Settings::load();
+        // The schedule is only changed by `set_schedule` (its buttons), so a
+        // stale copy sent here can never write the task.
         let mut settings = settings;
+        settings.schedule = Settings::load().schedule;
         settings.save().map_err(|e| format!("{e:#}"))?;
-        if previous.schedule != settings.schedule {
-            let exe = current_exe()?;
-            let applied = scheduler::apply(settings.schedule.as_ref(), &exe).and_then(|_| match &settings.schedule {
-                Some(_) => notify::register(&exe),
-                None => notify::unregister(),
-            });
-            if let Err(e) = applied {
-                log::warn!("schedule: {e:#}");
-                settings.schedule = None;
-                let _ = settings.save();
-                return Err(format!("{e:#}"));
-            }
-        }
         Ok(settings)
+    })
+    .await?
+}
+
+/// State of the scheduled check, for the settings' summary.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleStatus {
+    schedule: Option<majestic_core::settings::Schedule>,
+    /// `ok`, `missing` (option on, no task), `other` (the task runs another
+    /// copy of MAJestic), `unreadable`, or `none` (option off).
+    task: &'static str,
+    /// Program run by the task, when it exists.
+    task_command: Option<String>,
+    /// This copy of MAJestic.
+    exe: String,
+    /// `downloads` / `temp`: this copy sits in a folder that is often emptied.
+    location_warning: Option<&'static str>,
+    /// Next run (local time, `YYYY-MM-DDTHH:MM:SS`).
+    next_run: Option<String>,
+    last_check: Option<scheduler::LastCheck>,
+}
+
+fn schedule_status_now() -> Result<ScheduleStatus, String> {
+    let settings = Settings::load();
+    let exe = current_exe()?;
+    let (task, task_command) = match scheduler::registered_task() {
+        Ok(scheduler::TaskState::Runs(cmd)) => {
+            let state = if scheduler::same_command(&cmd, &exe) { "ok" } else { "other" };
+            (state, Some(cmd.to_string_lossy().into_owned()))
+        }
+        Ok(scheduler::TaskState::Missing) => (if settings.schedule.is_some() { "missing" } else { "none" }, None),
+        Ok(scheduler::TaskState::Unreadable) => ("unreadable", None),
+        Err(e) => {
+            log::warn!("schedule status: {e:#}");
+            ("unreadable", None)
+        }
+    };
+    let next_run = settings
+        .schedule
+        .as_ref()
+        .filter(|_| task == "ok")
+        .and_then(|s| scheduler::next_run(s, chrono::Local::now().naive_local()))
+        .map(|at| at.format("%Y-%m-%dT%H:%M:%S").to_string());
+    Ok(ScheduleStatus {
+        schedule: settings.schedule.clone(),
+        task,
+        task_command,
+        location_warning: paths::volatile_location(&exe),
+        exe: exe.to_string_lossy().into_owned(),
+        next_run,
+        last_check: scheduler::load_last_check(),
+    })
+}
+
+#[tauri::command]
+pub async fn schedule_status() -> Result<ScheduleStatus, String> {
+    blocking(schedule_status_now).await?
+}
+
+/// Turns the scheduled check on (or updates it) for this copy of MAJestic, or
+/// off when `schedule` is null: the only place where the task is written,
+/// always on the user's request.
+#[tauri::command]
+pub async fn set_schedule(schedule: Option<majestic_core::settings::Schedule>) -> Result<ScheduleStatus, String> {
+    blocking(move || {
+        let exe = current_exe()?;
+        scheduler::apply(schedule.as_ref(), &exe).map_err(|e| format!("{e:#}"))?;
+        let registered = match schedule {
+            Some(_) => notify::register(&exe),
+            None => notify::unregister(),
+        };
+        if let Err(e) = registered {
+            log::warn!("schedule: notification registration: {e:#}");
+        }
+        let mut settings = Settings::load();
+        settings.schedule = schedule;
+        settings.save().map_err(|e| format!("{e:#}"))?;
+        log::info!("schedule: {}", if settings.schedule.is_some() { "turned on" } else { "turned off" });
+        schedule_status_now()
     })
     .await?
 }

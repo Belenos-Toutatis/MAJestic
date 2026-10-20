@@ -218,6 +218,29 @@ async function scan() {
   return result;
 }
 
+// Scheduled check: ?schedule=missing simulates a task removed by Defender.
+function mockScheduleStatus() {
+  const sc = settings.schedule;
+  let nextRun = null;
+  if (sc) {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    const [hh, mm] = String(sc.time || '12:00').split(':');
+    d.setHours(Number(hh) || 12, Number(mm) || 0, 0, 0);
+    nextRun = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+  }
+  const missing = params.get('schedule') === 'missing';
+  return {
+    schedule: sc || null,
+    task: sc ? (missing ? 'missing' : 'ok') : 'none',
+    taskCommand: sc && !missing ? 'C:\\Users\\demo\\Documents\\MAJestic\\MAJestic.exe' : null,
+    exe: params.get('downloads') ? 'C:\\Users\\demo\\Downloads\\MAJestic.exe' : 'C:\\Users\\demo\\Documents\\MAJestic\\MAJestic.exe',
+    locationWarning: params.get('downloads') ? 'downloads' : null,
+    nextRun: missing ? null : nextRun,
+    lastCheck: { at: new Date(Date.now() - 2 * 86400e3).toISOString(), updates: 9, important: 3, windowsSecurity: 1, notified: true },
+  };
+}
+
 // ?wu=none | error | reboot changes what Windows Update answers.
 let lastWindowsUpdates = null;
 async function runWindowsUpdate() {
@@ -466,8 +489,8 @@ const handlers = {
   async save_settings({ settings: next }) {
     await sleep(120);
     if (!next || typeof next !== 'object') throw 'invalid settings';
-    if (next.schedule && !/^\d{2}:\d{2}$/.test(next.schedule.time || '')) throw 'invalid schedule time';
-    settings = { ...DEFAULT_SETTINGS, ...clone(next) };
+    // Like the backend: only set_schedule changes the schedule.
+    settings = { ...DEFAULT_SETTINGS, ...clone(next), schedule: settings.schedule };
     try { localStorage.setItem('majestic.mock.settings', JSON.stringify(settings)); } catch { /* ignore */ }
     return clone(settings);
   },
@@ -528,6 +551,15 @@ const handlers = {
   async open_logs() {
     console.info('[mock] open_logs');
     return null;
+  },
+  async schedule_status() {
+    return mockScheduleStatus();
+  },
+  async set_schedule({ schedule }) {
+    await sleep(500 / SPEED);
+    settings = { ...settings, schedule: schedule || null };
+    try { localStorage.setItem('majestic.mock.settings', JSON.stringify(settings)); } catch { /* ignore */ }
+    return mockScheduleStatus();
   },
   async run_uninstaller({ key }) {
     console.info('[mock] run_uninstaller', key);

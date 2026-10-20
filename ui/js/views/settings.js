@@ -2,10 +2,11 @@
 
 import { h, clear } from '../dom.js';
 import { icon } from '../icons.js';
-import { t } from '../i18n.js';
+import { t, fmt } from '../i18n.js';
+import { invoke, errorText } from '../api.js';
 import { state, bus, settings, itemByKey } from '../state.js';
 import { saveSettings, unignore, openLogs } from '../actions.js';
-import { toggle, segmented, select, button, infoDot, iconButton } from '../components/widgets.js';
+import { toggle, segmented, select, button, infoDot, iconButton, badge, banner, spinner } from '../components/widgets.js';
 import { toast } from '../components/toast.js';
 
 export function mountSettings(container) {
@@ -18,6 +19,11 @@ export function mountSettings(container) {
         h('p', { class: 'muted' }, t('settings.subtitle')))),
     body));
   container.append(view);
+
+  let schedHost = null;
+  let schedStatus = null;   // schedule_status
+  let schedDraft = null;    // settings being edited, applied by the buttons only
+  let schedBusy = false;
 
   function row({ ic, title, desc, control, info, id, disabled }) {
     return h('div', { class: ['set-row', disabled ? 'is-disabled' : null] },
@@ -105,42 +111,10 @@ export function mountSettings(container) {
         control: h('span', { class: 'badge outline', tabindex: 0, tip: [t('settings.admin'), t('settings.adminInfo')] }, state.info?.elevated ? t('settings.adminElevated') : t('settings.adminStandard')),
       })));
 
-    // Schedule
-    const sched = s.schedule && typeof s.schedule === 'object' ? s.schedule : null;
-    const freq = sched ? (['daily', 'weekly', 'monthly'].includes(sched.frequency) ? sched.frequency : 'weekly') : 'off';
-    const timeInput = h('input', {
-      type: 'time', class: 'input', id: 'set-time', value: sched?.time || '12:00', disabled: !sched,
-      'aria-label': t('settings.scheduleTime'), tip: [t('settings.scheduleTime'), t('settings.scheduleTimeTip')],
-    });
-    timeInput.addEventListener('change', () => {
-      if (!/^\d{2}:\d{2}$/.test(timeInput.value)) return;
-      saveSettings({ schedule: { ...currentSchedule(), time: timeInput.value } });
-    });
-    body.append(group(t('settings.schedule'),
-      row({
-        ic: 'calendar', id: 'set-frequency', title: t('settings.scheduleFrequency'), desc: t('settings.scheduleDesc'),
-        info: [t('settings.schedule'), t('settings.scheduleInfo')],
-        control: select({
-          id: 'set-frequency', label: t('settings.scheduleFrequency'), value: freq,
-          tip: [t('settings.scheduleFrequency'), t('settings.scheduleFrequencyTip')],
-          options: ['off', 'daily', 'weekly', 'monthly'].map((v) => ({ value: v, label: t(`settings.freq.${v}`) })),
-          onChange: (v) => saveSettings({ schedule: v === 'off' ? null : { ...currentSchedule(), frequency: v } }),
-        }),
-      }),
-      row({ ic: 'clock', id: 'set-time', title: t('settings.scheduleTime'), desc: t('settings.scheduleTimeDesc'), control: timeInput, disabled: !sched }),
-      row({
-        ic: 'bell', id: 'set-notify', title: t('settings.scheduleNotify'), desc: t('settings.scheduleNotifyDesc'), disabled: !sched,
-        control: (() => {
-          const el = select({
-            id: 'set-notify', label: t('settings.scheduleNotify'), value: sched?.notify === 'all' ? 'all' : 'important',
-            tip: [t('settings.scheduleNotify'), t('settings.scheduleNotifyTip')],
-            options: [{ value: 'important', label: t('settings.notify.important') }, { value: 'all', label: t('settings.notify.all') }],
-            onChange: (v) => saveSettings({ schedule: { ...currentSchedule(), notify: v } }),
-          });
-          el.disabled = !sched;
-          return el;
-        })(),
-      })));
+    // Schedule: summary of what is set, then an explicit button.
+    schedHost = h('section', { class: 'set-group sched-group' });
+    body.append(schedHost);
+    renderSchedule();
 
     // Ignored
     const rules = Array.isArray(s.ignored) ? s.ignored.filter((r) => r && r.key) : [];
@@ -198,13 +172,164 @@ export function mountSettings(container) {
     return parts.length ? h('div', { class: 'row-flex wrap end env-badges' }, parts) : null;
   }
 
-  function currentSchedule() {
-    const sc = settings().schedule;
+  // ---------------------------------------------------------------- scheduled check
+
+  function defaultDraft() {
+    const now = new Date();
+    return { frequency: 'weekly', weekday: ((now.getDay() + 6) % 7) + 1, day: Math.min(now.getDate(), 28), time: '12:00', notify: 'important' };
+  }
+
+  function draftFrom(sc) {
+    const d = defaultDraft();
+    if (!sc || typeof sc !== 'object') return d;
+    const wd = Number(sc.weekday);
+    const day = Number(sc.day);
     return {
-      frequency: ['daily', 'weekly', 'monthly'].includes(sc?.frequency) ? sc.frequency : 'weekly',
-      time: /^\d{2}:\d{2}$/.test(sc?.time || '') ? sc.time : '12:00',
-      notify: sc?.notify === 'all' ? 'all' : 'important',
+      frequency: ['daily', 'weekly', 'monthly'].includes(sc.frequency) ? sc.frequency : 'weekly',
+      weekday: wd >= 1 && wd <= 7 ? wd : d.weekday,
+      day: day >= 1 && day <= 28 ? day : d.day,
+      time: /^\d{2}:\d{2}$/.test(sc.time || '') ? sc.time : '12:00',
+      notify: sc.notify === 'all' ? 'all' : 'important',
     };
+  }
+
+  const sameDraft = (a, b) => ['frequency', 'weekday', 'day', 'time', 'notify'].every((k) => a[k] === b[k]);
+  const dayLabel = (d) => (d === 1 ? t('settings.sched.first') : String(d));
+  const summaryText = (d) => t(`settings.sched.summary.${d.frequency}`, {
+    time: d.time, weekday: t(`settings.sched.weekday.${d.weekday}`), day: dayLabel(d.day),
+  });
+
+  async function loadSchedule() {
+    try {
+      schedStatus = await invoke('schedule_status');
+    } catch (e) {
+      schedStatus = { error: errorText(e), schedule: settings().schedule || null, task: 'unreadable' };
+    }
+    if (!schedDraft) schedDraft = draftFrom(schedStatus.schedule);
+    renderSchedule();
+  }
+
+  function lastCheckText(lc) {
+    if (!lc || !lc.at) return t('settings.sched.lastCheckNever');
+    const parts = [t('settings.sched.result', { count: Number(lc.updates) || 0 })];
+    if (lc.important) parts.push(t('settings.sched.important', { count: lc.important }));
+    if (lc.windowsSecurity) parts.push(t('settings.sched.windowsSecurity', { count: lc.windowsSecurity }));
+    return `${fmt.dateTime(lc.at)} — ${parts.join(', ')}${lc.notified ? ` · ${t('settings.sched.notified')}` : ''}`;
+  }
+
+  function fact(ic, label, value, tip, mono) {
+    return h('div', { class: 'sched-fact' },
+      h('span', { class: 'sched-fact-ic' }, icon(ic)),
+      h('dt', null, label),
+      h('dd', { class: mono ? 'mono sched-path' : null, tip: [label, tip], tabindex: 0 }, value));
+  }
+
+  function renderSchedule() {
+    if (!schedHost) return;
+    clear(schedHost);
+    schedHost.append(h('h2', { class: 'set-group-title' }, t('settings.schedule'), infoDot(t('settings.schedule'), t('settings.scheduleInfo'))));
+    const card = h('div', { class: 'set-card' });
+    schedHost.append(card);
+    if (!schedStatus) {
+      card.append(h('div', { class: 'set-row' }, spinner(true), h('span', { class: 'muted' }, t('settings.sched.loading'))));
+      return;
+    }
+    const st = schedStatus;
+    const on = !!st.schedule;
+    const current = draftFrom(st.schedule);
+    const broken = on && (st.task === 'missing' || st.task === 'other');
+    const mode = !on ? 'off' : broken ? 'repair' : 'on';
+    const tones = { on: 'success', repair: 'warning', off: 'uncertain' };
+    const icons = { on: 'success', repair: 'warning', off: 'minus' };
+
+    // Summary of what is set.
+    card.append(h('div', { class: ['sched-recap', `is-${mode}`] },
+      h('div', { class: 'sched-head' },
+        badge({ text: t(`settings.sched.status.${mode}`), tone: tones[mode], icon: icons[mode], tip: [t(`settings.sched.status.${mode}`), t(`settings.sched.status.${mode}Tip`)], cls: 'sched-badge' }),
+        h('div', { class: 'strong grow' }, on ? summaryText(current) : t('settings.sched.offText'))),
+      h('dl', { class: 'sched-facts' },
+        on && st.nextRun ? fact('calendar', t('settings.sched.nextRun'), fmt.dateTime(st.nextRun), t('settings.sched.nextRunTip')) : null,
+        fact('history', t('settings.sched.lastCheck'), lastCheckText(st.lastCheck), t('settings.sched.lastCheckTip')),
+        on ? fact('bell', t('settings.sched.notifyLabel'), t(`settings.notify.${current.notify}`), t('settings.scheduleNotifyTip')) : null,
+        fact('file', t('settings.sched.program'), st.exe || '—', t('settings.sched.programTip'), true))));
+
+    if (on && st.task === 'missing') card.append(h('div', { class: 'sched-note' }, banner({ tone: 'warning', text: t('settings.sched.missing') })));
+    if (on && st.task === 'other') card.append(h('div', { class: 'sched-note' }, banner({ tone: 'warning', text: t('settings.sched.other', { path: st.taskCommand || '?' }) })));
+    if (st.locationWarning) card.append(h('div', { class: 'sched-note' }, banner({ tone: st.locationWarning === 'temp' ? 'warning' : 'info', icon: 'folder', text: t(`settings.sched.location.${st.locationWarning}`) })));
+    if (st.error) card.append(h('div', { class: 'sched-note' }, banner({ tone: 'danger', text: t('settings.sched.statusFailed', { error: st.error }) })));
+
+    // The settings to apply.
+    const d = schedDraft;
+    const update = (patch) => { schedDraft = { ...schedDraft, ...patch }; renderSchedule(); };
+    const timeInput = h('input', {
+      type: 'time', class: 'input', id: 'set-time', value: d.time,
+      'aria-label': t('settings.scheduleTime'), tip: [t('settings.scheduleTime'), t('settings.scheduleTimeTip')],
+    });
+    timeInput.addEventListener('change', () => { if (/^\d{2}:\d{2}$/.test(timeInput.value)) update({ time: timeInput.value }); });
+    card.append(
+      row({
+        ic: 'calendar', id: 'set-frequency', title: t('settings.scheduleFrequency'), desc: t('settings.scheduleDesc'),
+        control: select({
+          id: 'set-frequency', label: t('settings.scheduleFrequency'), value: d.frequency,
+          tip: [t('settings.scheduleFrequency'), t('settings.scheduleFrequencyTip')],
+          options: ['daily', 'weekly', 'monthly'].map((v) => ({ value: v, label: t(`settings.freq.${v}`) })),
+          onChange: (v) => update({ frequency: v }),
+        }),
+      }),
+      d.frequency === 'daily' ? null : row({
+        ic: 'calendar', id: 'set-day', title: t('settings.sched.day'), desc: t(d.frequency === 'weekly' ? 'settings.sched.dayWeeklyDesc' : 'settings.sched.dayMonthlyDesc'),
+        control: select({
+          id: 'set-day', label: t('settings.sched.day'), value: String(d.frequency === 'weekly' ? d.weekday : d.day),
+          tip: [t('settings.sched.day'), t('settings.sched.dayTip')],
+          options: d.frequency === 'weekly'
+            ? [1, 2, 3, 4, 5, 6, 7].map((n) => ({ value: String(n), label: t(`settings.sched.weekdayCap.${n}`) }))
+            : Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: dayLabel(i + 1) })),
+          onChange: (v) => update(d.frequency === 'weekly' ? { weekday: Number(v) } : { day: Number(v) }),
+        }),
+      }),
+      row({ ic: 'clock', id: 'set-time', title: t('settings.scheduleTime'), desc: t('settings.scheduleTimeDesc'), control: timeInput }),
+      row({
+        ic: 'bell', id: 'set-notify', title: t('settings.scheduleNotify'), desc: t('settings.scheduleNotifyDesc'),
+        control: select({
+          id: 'set-notify', label: t('settings.scheduleNotify'), value: d.notify,
+          tip: [t('settings.scheduleNotify'), t('settings.scheduleNotifyTip')],
+          options: [{ value: 'important', label: t('settings.notify.important') }, { value: 'all', label: t('settings.notify.all') }],
+          onChange: (v) => update({ notify: v }),
+        }),
+      }));
+
+    // Explicit actions: the Windows task is only written here.
+    const dirty = on && !sameDraft(current, d);
+    const actions = [];
+    if (!on) {
+      actions.push(button({ label: t('settings.sched.activate'), icon: 'calendar', variant: 'primary', disabled: schedBusy, tip: [t('settings.sched.activate'), t('settings.sched.activateTip')], onClick: () => applySchedule(d) }));
+    } else {
+      if (broken) actions.push(button({ label: t('settings.sched.repair'), icon: 'wrench', variant: 'primary', disabled: schedBusy, tip: [t('settings.sched.repair'), t('settings.sched.repairTip')], onClick: () => applySchedule(d) }));
+      else actions.push(button({ label: t('settings.sched.save'), icon: 'check', variant: 'primary', disabled: schedBusy || !dirty, tip: [t('settings.sched.save'), dirty ? t('settings.sched.saveTip') : t('settings.sched.saveNothing')], onClick: () => applySchedule(d) }));
+      actions.push(button({ label: t('settings.sched.disable'), icon: 'close', variant: 'subtle', disabled: schedBusy, tip: [t('settings.sched.disable'), t('settings.sched.disableTip')], onClick: () => applySchedule(null) }));
+    }
+    card.append(h('div', { class: 'sched-actions' },
+      h('p', { class: 'caption muted grow' }, icon('shield'), ' ', t('settings.sched.defender')),
+      schedBusy ? spinner(true) : null,
+      actions));
+  }
+
+  async function applySchedule(draft) {
+    const wasOn = !!schedStatus?.schedule;
+    schedBusy = true;
+    renderSchedule();
+    try {
+      schedStatus = await invoke('set_schedule', { schedule: draft ? { ...draft } : null });
+      // Keep the shared settings in sync: a later save must not send a stale schedule.
+      state.settings = { ...state.settings, schedule: schedStatus.schedule || null };
+      schedDraft = draftFrom(schedStatus.schedule);
+      const when = schedStatus.nextRun ? fmt.dateTime(schedStatus.nextRun) : '—';
+      toast(draft ? t(wasOn ? 'settings.sched.saved' : 'settings.sched.activated', { when }) : t('settings.sched.disabled'), { tone: 'success', duration: 6000 });
+    } catch (e) {
+      toast(t('settings.sched.failed', { error: errorText(e) }), { tone: 'danger', duration: 9000 });
+    }
+    schedBusy = false;
+    renderSchedule();
   }
 
   async function unignoreRule(rule) {
@@ -222,6 +347,7 @@ export function mountSettings(container) {
   }
 
   render();
+  loadSchedule();
   const off = bus.on('settings', () => {
     const focusedId = document.activeElement?.id;
     const scroller = view.querySelector('.view-scroll');

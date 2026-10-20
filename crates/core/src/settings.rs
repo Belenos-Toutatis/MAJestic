@@ -52,11 +52,24 @@ pub struct Schedule {
     /// `HH:MM`, local time.
     pub time: String,
     pub notify: NotifyLevel,
+    /// Weekly: day of the week, 1 = Monday … 7 = Sunday (day of creation
+    /// when absent, older settings).
+    #[serde(default)]
+    pub weekday: Option<u8>,
+    /// Monthly: day of the month, 1–28 (day of creation when absent).
+    #[serde(default)]
+    pub day: Option<u8>,
 }
 
 impl Default for Schedule {
     fn default() -> Self {
-        Schedule { frequency: Frequency::Weekly, time: "12:00".into(), notify: NotifyLevel::Important }
+        Schedule {
+            frequency: Frequency::Weekly,
+            time: "12:00".into(),
+            notify: NotifyLevel::Important,
+            weekday: None,
+            day: None,
+        }
     }
 }
 

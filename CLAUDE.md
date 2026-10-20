@@ -52,7 +52,8 @@ python -m http.server -d ui            # interface dans un navigateur, backend s
 
 - Fermer `MAJestic.exe` avant de recompiler (sinon « Accès refusé », exe verrouillé).
 - Mock (`ui/js/mock.js`, actif hors Tauri) : `?speed=4`, `?mock=empty`,
-  `?mock=scan-error`, `?uac=refuse`, `?appUpdate=1` (ou `=fail`), `?updated=1`, `?wu=none|error|reboot`.
+  `?mock=scan-error`, `?uac=refuse`, `?appUpdate=1` (ou `=fail`), `?updated=1`, `?wu=none|error|reboot`,
+  `?schedule=missing`, `?downloads=1`.
 - Modes de l'exe : sans argument = fenêtre ; `--worker <pipe> <pid>` = processus
   élevé ; `--check` = vérification planifiée (toast, sans fenêtre) ;
   `--after-update <pid> <version>` = fenêtre lancée par l'auto-mise à jour.
@@ -77,7 +78,7 @@ app/src/       Tauri : commands.rs, batch.rs (file d'installations), worker.rs (
 ui/            modules ES vanilla (views/, components/), i18n/, css/, mock
 ```
 
-Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `cache/`,
+Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `last-check.json`, `cache/`,
 `logs/app.log`, `worker.log`, `check.log`.
 
 ## Décisions et mécanismes clés
@@ -132,6 +133,10 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `cac
 - **Vérification planifiée** : tâche « MAJestic UpdateCheck » (XML UTF-16 LE avec BOM,
   `StartWhenAvailable`, lance `--check`). Toasts via l'AUMID `MAJestic.UpdateAssistant`
   et le protocole `majestic:` (HKCU) ; désactiver la planification supprime tout.
+  La tâche n'est écrite **que** par `set_schedule` (boutons Activer / Enregistrer /
+  Réparer / Désactiver des Paramètres) : jamais au démarrage ni par `save_settings`
+  (alerte Defender `Behavior:Win32/Persistence.A!ml` en 0.1.2). Récapitulatif par
+  `schedule_status` ; résultat du dernier `--check` dans `last-check.json`.
   **La tâche n'est écrite que quand l'utilisateur change l'option**, jamais au
   lancement : Microsoft Defender a classé MAJestic « Behavior:Win32/Persistence.A!ml »
   (20/10/2026) parce qu'il recréait sa tâche à chaque démarrage, et a supprimé l'exe

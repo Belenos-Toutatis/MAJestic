@@ -721,3 +721,22 @@ button.strip-seg:hover { background: var(--surface-hover); }
 .wu-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wu-badges { gap: 6px; justify-content: flex-end; flex: none; max-width: 45%; }
 .wu-note { list-style: none; padding: 4px 0 6px; }
+
+/* ================================================================= scheduled check */
+
+.sched-recap { padding: 14px 16px; border-bottom: 1px solid var(--border); display: grid; gap: 10px; }
+.sched-recap.is-on { background: var(--success-soft); }
+.sched-recap.is-repair { background: var(--warning-soft); }
+.sched-head { display: flex; align-items: center; gap: 10px; }
+.sched-head .strong { font-size: var(--fs-body-l); }
+.sched-facts { display: grid; gap: 6px; margin: 0; }
+.sched-fact { display: grid; grid-template-columns: 20px 170px minmax(0, 1fr); align-items: start; gap: 8px; }
+.sched-fact-ic { color: var(--text-3); display: grid; place-items: center; padding-top: 2px; }
+.sched-fact-ic svg { width: 16px; height: 16px; }
+.sched-fact dt { color: var(--text-2); }
+.sched-fact dd { margin: 0; min-width: 0; }
+.sched-path { font-size: 12px; overflow-wrap: anywhere; }
+.sched-note { padding: 10px 16px 0; }
+.sched-actions { display: flex; align-items: center; gap: 10px; padding: 12px 16px; flex-wrap: wrap; border-top: 1px solid var(--border); }
+.sched-actions p { display: flex; align-items: center; gap: 4px; min-width: 200px; }
+.sched-actions p svg { width: 14px; height: 14px; flex: none; }

@@ -51,7 +51,9 @@ Argument names are camelCase on the JS side.
 |---|---|---|
 | `app_info` | – | `{ appVersion, uiLanguage, elevated, adminMember, dataDir, updatedFrom, scheduleNotice }` (`updatedFrom`: previous version right after a self-update; `scheduleNotice`: `missing` when the scheduled check was turned off because its task disappeared, `moved` when the task runs another copy; the task itself is never rewritten at start) |
 | `get_settings` | – | `Settings` |
-| `save_settings` | `{ settings }` | `Settings` (schedule applied; error string on failure) |
+| `save_settings` | `{ settings }` | `Settings` (`schedule` ignored: kept as stored) |
+| `schedule_status` | – | `{ schedule, task, taskCommand, exe, locationWarning, nextRun, lastCheck }` (`task`: `ok`, `missing`, `other` (runs another copy), `unreadable`, `none`; `locationWarning`: `downloads` / `temp`; `nextRun`: local `YYYY-MM-DDTHH:MM:SS`; `lastCheck`: `{ at, updates, important, windowsSecurity, notified }` of the last `--check`) |
+| `set_schedule` | `{ schedule: Schedule \| null }` | same as `schedule_status`; creates, updates or deletes the task for this copy: the only place where the task is written, always from a button |
 | `scan` | – | `ScanResult` (emits `scan-progress` meanwhile; then starts the lookup phase in background, which emits `item-updated` and `scan-progress` with step `lookup`) |
 | `get_icon` | `{ hint }` | `string \| null` (data URL, 32 px) |
 | `list_versions` | `{ id, source }` | `string[]` newest first |
@@ -133,3 +135,15 @@ stable category ids (security, critical, definition, driver, feature...),
 pending restart. MAJestic never installs them: the UI's button opens
 `ms-settings:windowsupdate-action` (or `-optionalupdates`), and Windows does the
 rest. The scheduled check counts pending security updates as important.
+
+## Scheduled check
+
+Turned on only by the user, from Settings (`set_schedule`): MAJestic never
+creates or rewrites its task by itself, since Microsoft Defender treats an
+unsigned program that installs a task restarting it as persistence. The task
+"MAJestic UpdateCheck" (XML in UTF-16 LE, `StartWhenAvailable`) runs
+`MAJestic.exe --check` daily, weekly on `Schedule.weekday` (1 = Monday) or
+monthly on `Schedule.day` (1–28). The check scans without online lookups,
+shows a toast if worth it, and writes its result to `last-check.json`, shown
+in the settings' summary with the next run (`scheduler::next_run`). At start,
+a vanished task turns the option off (`scheduleNotice: missing`).

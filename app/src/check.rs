@@ -3,6 +3,7 @@
 
 use majestic_core::model::{ItemKind, Priority, WindowsUpdateKind};
 use majestic_core::settings::{NotifyLevel, Settings};
+use majestic_core::scheduler::{self, LastCheck};
 use majestic_core::system::{shell, windows_update};
 
 use crate::notify;
@@ -36,7 +37,21 @@ pub fn run() -> i32 {
         NotifyLevel::All => !updates.is_empty() || wu_security > 0,
         NotifyLevel::Important => important > 0 || wu_security > 0,
     };
+    // Shown in the settings ("last check").
+    let record = |notified: bool| {
+        let check = LastCheck {
+            at: chrono::Local::now().to_rfc3339(),
+            updates: updates.len(),
+            important,
+            windows_security: wu_security,
+            notified,
+        };
+        if let Err(e) = scheduler::save_last_check(&check) {
+            log::warn!("check: cannot save the result: {e:#}");
+        }
+    };
     if !worth {
+        record(false);
         return 0;
     }
 
@@ -80,13 +95,14 @@ pub fn run() -> i32 {
         (title, body, "Open MAJestic")
     };
 
-    if let Ok(exe) = std::env::current_exe() {
-        let _ = notify::register(&exe);
-    }
+    // The notification identity is registered when the option is turned on,
+    // not at every run.
     if let Err(e) = notify::show_toast(&title, &body, button) {
         log::warn!("check: cannot show notification: {e:#}");
+        record(false);
         return 1;
     }
+    record(true);
     // Let the notification platform take the toast before exiting.
     std::thread::sleep(std::time::Duration::from_secs(2));
     0
