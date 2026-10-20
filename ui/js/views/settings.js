@@ -8,6 +8,7 @@ import { state, bus, settings, itemByKey } from '../state.js';
 import { saveSettings, unignore, openLogs } from '../actions.js';
 import { toggle, segmented, select, button, infoDot, iconButton, badge, banner, spinner } from '../components/widgets.js';
 import { toast } from '../components/toast.js';
+import { checkAppUpdate, appUpdateChecking, openAppUpdate } from '../appupdate.js';
 
 export function mountSettings(container) {
   const view = h('div', { class: 'view settings-view' });
@@ -24,6 +25,7 @@ export function mountSettings(container) {
   let schedStatus = null;   // schedule_status
   let schedDraft = null;    // settings being edited, applied by the buttons only
   let schedBusy = false;
+  let appUpdateRowEl = null;
 
   function row({ ic, title, desc, control, info, id, disabled }) {
     return h('div', { class: ['set-row', disabled ? 'is-disabled' : null] },
@@ -145,6 +147,7 @@ export function mountSettings(container) {
           h('div', { class: 'set-title' }, t('app.name'), ' ', h('span', { class: 'num muted' }, info.appVersion || env.appVersion || '?')),
           h('p', { class: 'caption muted' }, t('app.tagline'))),
         envBadges(env)),
+      (appUpdateRowEl = appUpdateRow()),
       row({
         ic: 'folder', title: t('settings.dataDir'), desc: dataDir,
         info: [t('settings.dataDir'), t('settings.dataDirInfo')],
@@ -154,6 +157,58 @@ export function mountSettings(container) {
         ic: 'notes', title: t('settings.logs'), desc: t('settings.logsDesc'),
         control: button({ label: t('common.openLogs'), icon: 'folder', size: 'small', tip: [t('common.openLogs'), t('common.openLogsTip')], onClick: openLogs }),
       })));
+  }
+
+  // ---------------------------------------------------------------- MAJestic's own updates
+
+  function appUpdateStatus() {
+    const check = state.appUpdateCheck;
+    if (!settings().onlineIntel) return t('settings.appUpdate.offline');
+    if (appUpdateChecking()) return t('settings.appUpdate.checking');
+    if (state.appUpdate) return t('settings.appUpdate.available', { version: state.appUpdate.version, current: state.info?.appVersion || '?' });
+    if (check?.error) return t('settings.appUpdate.failed', { when: fmt.relative(check.at) });
+    if (check?.at) return t('settings.appUpdate.upToDate', { when: fmt.relative(check.at) });
+    return t('settings.appUpdate.never');
+  }
+
+  function appUpdateRow() {
+    const online = !!settings().onlineIntel;
+    const busy = appUpdateChecking();
+    const control = state.appUpdate && !busy
+      ? button({
+        label: t('settings.appUpdate.install'), icon: 'download', variant: 'royal', size: 'small',
+        tip: [t('settings.appUpdate.install'), t('settings.appUpdate.installTip', { version: state.appUpdate.version })],
+        onClick: openAppUpdate,
+      })
+      : h('div', { class: 'row-flex' },
+        busy ? spinner(true) : null,
+        button({
+          label: t('settings.appUpdate.check'), icon: 'refresh', size: 'small', disabled: !online,
+          'aria-busy': busy ? 'true' : null,
+          tip: [t('settings.appUpdate.check'), online ? t('settings.appUpdate.checkTip') : t('settings.appUpdate.offline')],
+          onClick: manualAppUpdateCheck,
+        }));
+    return row({
+      ic: 'sparkle', title: t('settings.appUpdate.title'), desc: appUpdateStatus(),
+      info: [t('settings.appUpdate.title'), t('settings.appUpdate.info')], control,
+    });
+  }
+
+  function refreshAppUpdateRow() {
+    if (!appUpdateRowEl?.isConnected) return;
+    const hadFocus = appUpdateRowEl.contains(document.activeElement);
+    const next = appUpdateRow();
+    appUpdateRowEl.replaceWith(next);
+    appUpdateRowEl = next;
+    if (hadFocus) next.querySelector('.set-control button:not([disabled])')?.focus({ preventScroll: true });
+  }
+
+  async function manualAppUpdateCheck() {
+    if (appUpdateChecking()) return;
+    const release = await checkAppUpdate({ manual: true });
+    if (release) openAppUpdate();
+    else if (state.appUpdateCheck?.error) toast(t('settings.appUpdate.failedToast'), { tone: 'danger', duration: 6000 });
+    else toast(t('settings.appUpdate.upToDateToast', { version: state.info?.appVersion || '' }), { tone: 'success', duration: 4000 });
   }
 
   function adminText() {
@@ -348,13 +403,17 @@ export function mountSettings(container) {
 
   render();
   loadSchedule();
-  const off = bus.on('settings', () => {
-    const focusedId = document.activeElement?.id;
-    const scroller = view.querySelector('.view-scroll');
-    const top = scroller.scrollTop;
-    render();
-    scroller.scrollTop = top;
-    if (focusedId) document.getElementById(focusedId)?.focus({ preventScroll: true });
-  });
-  return () => off();
+  const offs = [
+    bus.on('settings', () => {
+      const focusedId = document.activeElement?.id;
+      const scroller = view.querySelector('.view-scroll');
+      const top = scroller.scrollTop;
+      render();
+      scroller.scrollTop = top;
+      if (focusedId) document.getElementById(focusedId)?.focus({ preventScroll: true });
+    }),
+    bus.on('app-update', refreshAppUpdateRow),
+    bus.on('app-update-check', refreshAppUpdateRow),
+  ];
+  return () => offs.forEach((off) => off());
 }

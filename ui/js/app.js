@@ -15,7 +15,7 @@ import { mountProgress } from './views/progress.js';
 import { mountSummary } from './views/summary.js';
 import { mountHistory } from './views/history.js';
 import { mountSettings } from './views/settings.js';
-import { checkAppUpdate, announceUpdated, openAppUpdate } from './appupdate.js';
+import { checkAppUpdate, startAppUpdateTimer, announceUpdated, openAppUpdate } from './appupdate.js';
 
 const root = document.getElementById('app');
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -203,6 +203,7 @@ async function boot() {
   announceUpdated();
   if (state.settings.scanOnStart) startScan();
   checkAppUpdate();
+  startAppUpdateTimer();
 }
 
 boot().catch((e) => {

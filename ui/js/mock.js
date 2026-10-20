@@ -576,10 +576,12 @@ const handlers = {
     console.info('[mock] open_windows_update', page);
     return null;
   },
-  // ?appUpdate=1 offers a newer MAJestic; ?appUpdate=fail makes its install fail.
+  // ?appUpdate=1 offers a newer MAJestic; ?appUpdate=fail makes its install
+  // fail; ?appUpdate=error makes the check itself fail.
   async check_app_update() {
-    if (!params.get('appUpdate')) return null;
     await sleep(800 / SPEED);
+    if (!params.get('appUpdate')) return null;
+    if (params.get('appUpdate') === 'error') throw 'GET https://api.github.com/repos/Belenos-Toutatis/MAJestic/releases/latest: 403 Forbidden';
     return {
       version: '0.2.0',
       pageUrl: 'https://github.com/Belenos-Toutatis/MAJestic/releases/tag/v0.2.0',

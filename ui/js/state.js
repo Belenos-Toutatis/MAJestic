@@ -39,6 +39,7 @@ export const state = {
   },
   run: null,             // see actions.newRun
   appUpdate: null,       // newer MAJestic release (check_app_update)
+  appUpdateCheck: null,  // last check: { at, error }
   wu: null,              // { searching, data: WindowsUpdates } (Windows Update phase)
 };
 

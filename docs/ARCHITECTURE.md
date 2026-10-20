@@ -71,7 +71,7 @@ Argument names are camelCase on the JS side.
 | `run_uninstaller` | `{ key }` | `null`; starts the program's own uninstaller (registry entry `UpdateItem.uninstallKey`, read again from the registry; MSI `/I` becomes `/X`); errors `not_installed`, `no_uninstaller` |
 | `open_installed_apps` | `{ classic }` | `null`; Settings › Installed apps, or the classic "Programs and Features" |
 | `open_windows_update` | `{ page }` | `null`; opens Settings › Windows Update and starts a search (`check`), or the optional updates (`optional`) |
-| `check_app_update` | – | `{ version, pageUrl, notes, size } \| null` (newer MAJestic on GitHub; `null` when offline or online sources are off) |
+| `check_app_update` | – | `{ version, pageUrl, notes, size } \| null` (newer MAJestic on GitHub; `null` when none or online sources are off; error string when GitHub could not be asked) |
 | `install_app_update` | – | never returns on success: the new version starts and this one exits; error `{ kind, message }` (`busy`, `not_checked`, `network`, `hash_mismatch`, `version_mismatch`, `write_denied`, `swap_failed`, `restart_failed`) |
 
 ### Events
@@ -120,7 +120,10 @@ calibration factor (actual ÷ estimated of finished jobs) and emits smoothed
 
 `check_app_update` reads the latest release of `Belenos-Toutatis/MAJestic`
 from the GitHub API (drafts and pre-releases ignored; assets accepted only
-from this repository). `install_app_update` downloads `MAJestic.exe` next to
+from this repository). The window calls it at start, then again when the last
+check is 6 hours old (timer every 10 minutes, so a PC woken from sleep
+catches up), and from Settings › About (« Rechercher une mise à jour »), which
+shows the result and opens the update dialog when a version is found. `install_app_update` downloads `MAJestic.exe` next to
 the running file as `MAJestic.exe.new`, and keeps it only if its SHA-256
 equals the published `MAJestic.exe.sha256` and its file version is the
 announced one. It then renames the running file to `MAJestic.exe.old`

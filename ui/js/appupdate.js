@@ -1,4 +1,5 @@
-// MAJestic updating itself: check at start, rail button, update dialog
+// MAJestic updating itself: check at start then every 6 hours (or from
+// Settings › About), rail button, update dialog
 // (download with progress, SHA-256 check and restart are done by the backend).
 
 import { h, clear } from './dom.js';
@@ -10,18 +11,50 @@ import { openDialog } from './components/dialog.js';
 import { banner } from './components/widgets.js';
 import { toast } from './components/toast.js';
 
-/** Asks the backend for a newer release (silently does nothing when offline). */
-export async function checkAppUpdate() {
-  if (!settings().onlineIntel) return;
-  try {
-    const release = await invoke('check_app_update');
-    if (!release?.version) return;
-    state.appUpdate = release;
-    bus.emit('app-update', release);
-    toast(t('appUpdate.toast', { version: release.version }), { tone: 'info', duration: 6000 });
-  } catch (e) {
-    console.warn('[app update]', e);
-  }
+/** While the window stays open, checks again this often. */
+const RECHECK_EVERY = 6 * 3600e3;
+let checking = null;
+
+export const appUpdateChecking = () => !!checking;
+
+/**
+ * Asks the backend for a newer release (does nothing when online sources are
+ * off). Records the result in `state.appUpdateCheck` and emits
+ * `app-update-check` when it starts and ends. `manual`: asked from Settings ›
+ * About, which shows the result itself.
+ */
+export function checkAppUpdate({ manual = false } = {}) {
+  if (!settings().onlineIntel) return Promise.resolve(null);
+  if (checking) return checking;
+  checking = (async () => {
+    try {
+      const release = await invoke('check_app_update');
+      state.appUpdateCheck = { at: Date.now(), error: null };
+      const known = state.appUpdate?.version;
+      state.appUpdate = release?.version ? release : null;
+      if ((state.appUpdate?.version || null) !== (known || null)) bus.emit('app-update', state.appUpdate);
+      if (state.appUpdate && state.appUpdate.version !== known && !manual) {
+        toast(t('appUpdate.toast', { version: state.appUpdate.version }), { tone: 'info', duration: 6000 });
+      }
+      return state.appUpdate;
+    } catch (e) {
+      console.warn('[app update]', e);
+      state.appUpdateCheck = { at: Date.now(), error: errorText(e) };
+      return null;
+    } finally {
+      checking = null;
+      bus.emit('app-update-check');
+    }
+  })();
+  bus.emit('app-update-check');
+  return checking;
+}
+
+/** Checks again every 6 hours while the window stays open (timestamps, so a PC put to sleep catches up on waking). */
+export function startAppUpdateTimer() {
+  setInterval(() => {
+    if (Date.now() - (state.appUpdateCheck?.at || 0) >= RECHECK_EVERY) checkAppUpdate();
+  }, 10 * 60e3);
 }
 
 /** Right after an update: tells the user it worked. */

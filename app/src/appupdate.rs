@@ -48,8 +48,10 @@ struct Progress {
     total: Option<u64>,
 }
 
-/// The newer release on GitHub, if any (never an error: offline or refused
-/// requests just mean "nothing new"). Respects the "online sources" setting.
+/// The newer release on GitHub, if any. An error when GitHub could not be
+/// asked (offline, refused): the window ignores it at start and in its
+/// periodic checks, Settings › About shows it. A failed check keeps the
+/// release found before. Respects the "online sources" setting.
 #[tauri::command]
 pub async fn check_app_update(state: State<'_, AppState>) -> Result<Option<Release>, String> {
     if !Settings::load().online_intel {
@@ -58,10 +60,10 @@ pub async fn check_app_update(state: State<'_, AppState>) -> Result<Option<Relea
     let found = tauri::async_runtime::spawn_blocking(|| selfupdate::check(majestic_core::APP_VERSION))
         .await
         .map_err(|e| e.to_string())?
-        .unwrap_or_else(|e| {
+        .map_err(|e| {
             log::info!("update check: {e:#}");
-            None
-        });
+            format!("{e:#}")
+        })?;
     if let Some(r) = &found {
         log::info!("MAJestic {} is available", r.version);
     }

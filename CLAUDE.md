@@ -52,7 +52,7 @@ python -m http.server -d ui            # interface dans un navigateur, backend s
 
 - Fermer `MAJestic.exe` avant de recompiler (sinon « Accès refusé », exe verrouillé).
 - Mock (`ui/js/mock.js`, actif hors Tauri) : `?speed=4`, `?mock=empty`,
-  `?mock=scan-error`, `?uac=refuse`, `?appUpdate=1` (ou `=fail`), `?updated=1`, `?wu=none|error|reboot`,
+  `?mock=scan-error`, `?uac=refuse`, `?appUpdate=1` (ou `=fail`, `=error`), `?updated=1`, `?wu=none|error|reboot`,
   `?schedule=missing`, `?downloads=1`.
 - Modes de l'exe : sans argument = fenêtre ; `--worker <pipe> <pid>` = processus
   élevé ; `--check` = vérification planifiée (toast, sans fenêtre) ;
@@ -124,7 +124,10 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   nouveau lancé avec `--after-update <pid> <ancienne version>`, qui attend la fin de
   l'ancien (verrou d'instance unique) puis supprime le `.old`. Les notes affichées
   s'arrêtent au marqueur `<!-- download-notes -->` de `.github/release-notes.md`.
-  Respecte « Utiliser les sources en ligne ».
+  Respecte « Utiliser les sources en ligne ». Vérifiée au lancement, puis toutes les
+  6 heures fenêtre ouverte (`startAppUpdateTimer`), et par le bouton « Rechercher une
+  mise à jour » de Paramètres › À propos ; `check_app_update` renvoie une erreur
+  quand GitHub ne répond pas (affichée seulement dans À propos).
 - **Windows Update** (`system/windows_update.rs`, API COM wuapi, sans droits admin) :
   recherche en arrière-plan après chaque analyse (étape `windows_update`, événement
   `windows-updates`), classement par identifiants de catégorie (les noms sont
