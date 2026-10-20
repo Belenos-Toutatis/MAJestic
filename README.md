@@ -64,7 +64,9 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
   installées » et « Programmes et fonctionnalités ».
 - **Revenir à une version précédente** depuis l'historique (winget et Chocolatey).
 - **Vérification planifiée** (quotidienne, hebdomadaire ou mensuelle) avec une
-  notification Windows quand une mise à jour importante est disponible.
+  notification Windows quand une mise à jour importante est disponible. Tant que
+  MAJestic n'est pas signé, Microsoft Defender peut se méfier de la tâche planifiée
+  qu'elle crée : l'option reste désactivée tant que vous ne l'activez pas.
 - **Se met à jour lui-même** : quand une nouvelle version de MAJestic sort, un
   bouton « Nouvelle version » apparaît ; un clic suffit (empreinte SHA-256
   vérifiée avant de remplacer quoi que ce soit, réglages et historique conservés).

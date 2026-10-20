@@ -6,7 +6,7 @@
 //! `schtasks` flags cannot express "run as soon as possible after a missed
 //! start".
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use chrono::{Datelike, Local};
@@ -137,9 +137,53 @@ pub fn apply(schedule: Option<&Schedule>, exe: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// What Windows has registered under [`TASK_NAME`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TaskState {
+    /// No such task (never created, or removed by hand or by an antivirus).
+    Missing,
+    /// The task runs this program.
+    Runs(PathBuf),
+    /// The task exists but its definition could not be read.
+    Unreadable,
+}
+
+/// Reads the registered task (`schtasks /Query /XML`), without changing it.
+pub fn registered_task() -> anyhow::Result<TaskState> {
+    let out = exec::run("schtasks", &["/Query", "/TN", TASK_NAME, "/XML"], Duration::from_secs(30))?;
+    if out.code != 0 {
+        return Ok(TaskState::Missing);
+    }
+    Ok(command_of(&out.stdout).map_or(TaskState::Unreadable, TaskState::Runs))
+}
+
+fn command_of(xml: &str) -> Option<PathBuf> {
+    let start = xml.find("<Command>")? + "<Command>".len();
+    let end = start + xml[start..].find("</Command>")?;
+    let raw = xml[start..end].trim();
+    let unescaped = raw.replace("&quot;", "\"").replace("&gt;", ">").replace("&lt;", "<").replace("&amp;", "&");
+    Some(PathBuf::from(unescaped.trim_matches('"')))
+}
+
+/// Same executable path (case and quotes ignored).
+pub fn same_command(a: &Path, b: &Path) -> bool {
+    let norm = |p: &Path| p.to_string_lossy().trim().trim_matches('"').replace('/', "\\").to_lowercase();
+    norm(a) == norm(b)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn registered_command_parsing() {
+        let xml = "<?xml version=\"1.0\"?>\r\n<Task><Actions><Exec>\r\n<Command>C:\\Tools\\A&amp;B\\MAJestic.exe</Command>\r\n\
+                   <Arguments>--check</Arguments></Exec></Actions></Task>";
+        assert_eq!(command_of(xml), Some(PathBuf::from(r"C:\Tools\A&B\MAJestic.exe")));
+        assert_eq!(command_of("<Task></Task>"), None);
+        assert!(same_command(Path::new(r"C:\Users\Me\Downloads\MAJestic.exe"), Path::new(r#""c:\users\me\downloads\majestic.exe""#)));
+        assert!(!same_command(Path::new(r"C:\A\MAJestic.exe"), Path::new(r"C:\B\MAJestic.exe")));
+    }
 
     #[test]
     fn xml_contains_command_and_trigger() {

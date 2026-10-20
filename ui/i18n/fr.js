@@ -1115,7 +1115,11 @@ export default {
     adminMemberDesc: "Votre compte est administrateur : Windows demandera une simple confirmation quand ce sera nécessaire.",
     adminStandardDesc: "Votre compte est standard : le mot de passe d’un administrateur sera demandé pour certaines mises à jour.",
     schedule: "Vérification planifiée",
-    scheduleInfo: "Une tâche Windows lance MAJestic en arrière-plan à l’heure choisie. Elle vérifie seulement et vous prévient ; elle n’installe jamais rien sans vous.",
+    scheduleInfo: "Une tâche Windows lance MAJestic en arrière-plan à l’heure choisie. Elle vérifie seulement et vous prévient ; elle n’installe jamais rien sans vous. Tant que MAJestic n’est pas signé numériquement, Microsoft Defender peut signaler la création de cette tâche comme suspecte.",
+    scheduleNotice: {
+      missing: "La vérification planifiée a été désactivée : sa tâche Windows a été supprimée (par Microsoft Defender ou à la main). Vous pouvez la réactiver dans les Paramètres.",
+      moved: "La vérification planifiée lance une autre copie de MAJestic. Pour qu’elle utilise celle-ci, désactivez-la puis réactivez-la dans les Paramètres.",
+    },
     scheduleFrequency: "Fréquence",
     scheduleFrequencyTip: "À quelle fréquence vérifier les mises à jour en arrière-plan.",
     scheduleDesc: "Vérifier les mises à jour même quand MAJestic est fermé.",

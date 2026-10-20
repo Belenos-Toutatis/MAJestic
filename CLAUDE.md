@@ -132,6 +132,11 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `cac
 - **Vérification planifiée** : tâche « MAJestic UpdateCheck » (XML UTF-16 LE avec BOM,
   `StartWhenAvailable`, lance `--check`). Toasts via l'AUMID `MAJestic.UpdateAssistant`
   et le protocole `majestic:` (HKCU) ; désactiver la planification supprime tout.
+  **La tâche n'est écrite que quand l'utilisateur change l'option**, jamais au
+  lancement : Microsoft Defender a classé MAJestic « Behavior:Win32/Persistence.A!ml »
+  (20/10/2026) parce qu'il recréait sa tâche à chaque démarrage, et a supprimé l'exe
+  et la tâche. Au démarrage, `app_info` lit seulement la tâche : absente → option
+  désactivée + message (`scheduleNotice: missing`) ; autre copie → message (`moved`).
 - **Pluriels français** : `Intl.PluralRules('fr')` range 0 dans « one » ; `i18n.js`
   utilise la forme `zero` (ou `other`) pour 0.
 - **Métadonnées de l'exe** : `bundle.publisher` et `bundle.copyright` de

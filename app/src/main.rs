@@ -77,10 +77,6 @@ fn main() {
             appupdate::check_app_update,
             appupdate::install_app_update,
         ])
-        .setup(|_app| {
-            commands::refresh_schedule_path();
-            Ok(())
-        })
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
             log::error!("cannot start the window: {e}");

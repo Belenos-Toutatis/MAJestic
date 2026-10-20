@@ -43,6 +43,9 @@ pub struct AppInfo {
     data_dir: String,
     /// Set right after MAJestic updated itself (previous version).
     updated_from: Option<String>,
+    /// `missing` (scheduled check turned off: its task was removed) or
+    /// `moved` (the task runs another copy of MAJestic).
+    schedule_notice: Option<String>,
 }
 
 #[tauri::command]
@@ -55,6 +58,7 @@ pub async fn app_info(state: State<'_, AppState>) -> Result<AppInfo, String> {
         admin_member: elevation::is_admin_member(),
         data_dir: paths::data_dir().to_string_lossy().into_owned(),
         updated_from,
+        schedule_notice: check_schedule().map(str::to_string),
     })
     .await
 }
@@ -94,17 +98,38 @@ pub async fn save_settings(settings: Settings) -> Result<Settings, String> {
     .await?
 }
 
-/// The executable may have moved since the task was created (portable app):
-/// re-register the task with the current path.
-pub fn refresh_schedule_path() {
-    std::thread::spawn(|| {
-        let settings = Settings::load();
-        if let (Some(schedule), Ok(exe)) = (&settings.schedule, std::env::current_exe()) {
-            if let Err(e) = scheduler::apply(Some(schedule), &exe).and_then(|_| notify::register(&exe)) {
-                log::warn!("schedule refresh: {e:#}");
-            }
+/// Checks the scheduled check at start, without ever (re)creating its task:
+/// Microsoft Defender treats an unknown program that installs a task
+/// restarting it as malware persistence (Behavior:Win32/Persistence.A!ml).
+/// The task is only written when the user changes the option.
+/// * task gone (removed by hand or by an antivirus): the option is turned off;
+/// * task running another copy of MAJestic: nothing changes (settings are
+///   shared by every copy), the UI just says so.
+fn check_schedule() -> Option<&'static str> {
+    let mut settings = Settings::load();
+    settings.schedule.as_ref()?;
+    let exe = std::env::current_exe().ok()?;
+    match scheduler::registered_task() {
+        Ok(scheduler::TaskState::Runs(cmd)) if scheduler::same_command(&cmd, &exe) => None,
+        Ok(scheduler::TaskState::Runs(cmd)) => {
+            log::info!("schedule: the task runs {} (not this copy)", cmd.display());
+            Some("moved")
         }
-    });
+        Ok(scheduler::TaskState::Missing) => {
+            log::warn!("schedule: the scheduled task no longer exists, turning the scheduled check off");
+            settings.schedule = None;
+            if let Err(e) = settings.save() {
+                log::warn!("schedule: cannot save settings: {e:#}");
+            }
+            let _ = notify::unregister();
+            Some("missing")
+        }
+        Ok(scheduler::TaskState::Unreadable) => None,
+        Err(e) => {
+            log::warn!("schedule: cannot read the scheduled task: {e:#}");
+            None
+        }
+    }
 }
 
 #[tauri::command]

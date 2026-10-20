@@ -49,7 +49,7 @@ Argument names are camelCase on the JS side.
 
 | Command | Arguments | Returns |
 |---|---|---|
-| `app_info` | – | `{ appVersion, uiLanguage, elevated, adminMember, dataDir, updatedFrom }` (`updatedFrom`: previous version right after a self-update) |
+| `app_info` | – | `{ appVersion, uiLanguage, elevated, adminMember, dataDir, updatedFrom, scheduleNotice }` (`updatedFrom`: previous version right after a self-update; `scheduleNotice`: `missing` when the scheduled check was turned off because its task disappeared, `moved` when the task runs another copy; the task itself is never rewritten at start) |
 | `get_settings` | – | `Settings` |
 | `save_settings` | `{ settings }` | `Settings` (schedule applied; error string on failure) |
 | `scan` | – | `ScanResult` (emits `scan-progress` meanwhile; then starts the lookup phase in background, which emits `item-updated` and `scan-progress` with step `lookup`) |

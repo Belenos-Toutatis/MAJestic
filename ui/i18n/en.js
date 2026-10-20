@@ -1115,7 +1115,11 @@ export default {
     adminMemberDesc: "Your account is an administrator: Windows will ask for a simple confirmation when needed.",
     adminStandardDesc: "Your account is standard: an administrator password will be needed for some updates.",
     schedule: "Scheduled check",
-    scheduleInfo: "A Windows task runs MAJestic in the background at the chosen time. It only checks and notifies you; it never installs anything without you.",
+    scheduleInfo: "A Windows task runs MAJestic in the background at the chosen time. It only checks and notifies you; it never installs anything without you. Until MAJestic is code-signed, Microsoft Defender may report the creation of this task as suspicious.",
+    scheduleNotice: {
+      missing: "The scheduled check was turned off: its Windows task was removed (by Microsoft Defender or by hand). You can turn it back on in Settings.",
+      moved: "The scheduled check runs another copy of MAJestic. To make it use this one, turn it off and on again in Settings.",
+    },
     scheduleFrequency: "Frequency",
     scheduleFrequencyTip: "How often to check for updates in the background.",
     scheduleDesc: "Check for updates even when MAJestic is closed.",

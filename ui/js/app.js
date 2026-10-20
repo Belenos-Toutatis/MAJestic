@@ -171,6 +171,11 @@ async function boot() {
   renderShell();
   renderView(true);
   if (loaded.status === 'rejected') toast(t('settings.loadFailed', { error: errorText(loaded.reason) }), { tone: 'danger', duration: 6000 });
+  // The backend turned the scheduled check off (its task disappeared), or the
+  // task runs another copy of MAJestic: say so once.
+  const notice = ['missing', 'moved'].includes(state.info.scheduleNotice) ? state.info.scheduleNotice : null;
+  if (notice === 'missing') state.settings.schedule = null;
+  if (notice) toast(t(`settings.scheduleNotice.${notice}`), { tone: 'info', duration: 10000 });
 
   bus.on('route', () => renderView());
   bus.on('screen', () => { renderView(); updateNavBadge(); });
