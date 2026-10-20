@@ -907,6 +907,7 @@ export default {
     rebootPendingTitle: "Redémarrage nécessaire",
     rebootPendingText: "Windows a installé des mises à jour qui ne seront actives qu’après un redémarrage du PC.",
     published: "publiée le {date}",
+    upTo: "jusqu’à {size}",
     optional: "Facultative",
     optionalTip: "Windows ne l’installe pas tout seul : elle est proposée dans « Mises à jour facultatives », à installer si vous en avez besoin.",
     downloaded: "Téléchargée",

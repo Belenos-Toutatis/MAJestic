@@ -907,6 +907,7 @@ export default {
     rebootPendingTitle: "Restart needed",
     rebootPendingText: "Windows installed updates that only take effect after the PC restarts.",
     published: "released {date}",
+    upTo: "up to {size}",
     optional: "Optional",
     optionalTip: "Windows does not install it on its own: it is offered under “Optional updates”, to install if you need it.",
     downloaded: "Downloaded",

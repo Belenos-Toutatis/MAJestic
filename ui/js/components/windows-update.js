@@ -31,7 +31,8 @@ export function wuRow(u) {
   const meta = [
     ...(Array.isArray(u.kb) ? u.kb.slice(0, 3) : []),
     u.date ? t('wu.published', { date: fmt.date(u.date) }) : null,
-    u.size ? fmt.bytes(u.size) : null,
+    // Windows gives the largest possible download; Defender deltas are tiny.
+    u.size && kind !== 'definition' ? t('wu.upTo', { size: fmt.bytes(u.size) }) : null,
   ].filter(Boolean).join(' · ');
   return h('li', { class: ['wu-row', `tone-${KIND_TONES[kind]}`] },
     h('span', { class: 'wu-ic', 'aria-hidden': 'true' }, icon(KIND_ICONS[kind])),
