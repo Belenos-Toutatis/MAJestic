@@ -109,6 +109,15 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   `StaleInstaller`, élément non coché. Après chaque mise à jour winget réussie,
   `jobs::unchanged_version` relit la version (`winget list --id`, 3 essais sur ~20 s) ;
   inchangée → `FailureKind::NoEffect`, avec le bouton « Ignorer la version ».
+- **Langue de l'installation (winget)** : winget lit la valeur `Language` du
+  programme installé ; un MSI qui met 0 est pris pour la langue de l'utilisateur
+  (fr-FR), et un installateur seulement en anglais est alors refusé : « mise à jour
+  non applicable » (`0x8A15002B`, cas réel de Murmure 2.0.3, alors que sa propre mise
+  à jour interne marchait). `jobs::locale_retry` relance une fois avec `--locale`
+  quand tous les installateurs de la fiche winget-pkgs ont la même langue
+  (`manifest::single_locale`) : c'est le même fichier, aucun choix de langue n'est
+  changé. Diagnostic : `winget upgrade --id X --verbose-logs`, puis la ligne
+  « Locale Comparator » du journal de winget (`IsInstalledLocale: 1`).
 - **Mise à jour de MAJestic lui-même** (`selfupdate.rs` dans le moteur, `appupdate.rs`
   dans l'app, `ui/js/appupdate.js`) : dernière version GitHub, téléchargement en
   `MAJestic.exe.new`, contrôle SHA-256 + version du fichier, exe renommé en `.old`,
@@ -152,6 +161,12 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
 - Un MAJestic lancé depuis Bash écrit ses réglages dans une couche isolée, invisible
   du Planificateur de tâches. Pour tester la vérification planifiée, lancer l'exe via
   `explorer.exe`.
+- Même chose en lecture : la session voit sa propre copie de
+  `%LOCALAPPDATA%\MAJestic` (journaux anciens). Pour lire les vrais `logs\*.log` et
+  `history.jsonl`, les faire copier par un `.bat` lancé via `explorer.exe` dans
+  `.claude\` (ignoré par git), puis supprimer la copie. Les journaux de winget
+  (`%LOCALAPPDATA%\Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState\DiagOutputDir`)
+  se lisent directement.
 - Depuis Bash, écrire dans Images ou Bureau échoue ; Téléchargements fonctionne.
 - ImageMagick : un préfixe `PNG24:` empêche la conversion du chemin `/c/…` ; passer
   par `cygpath -m`.

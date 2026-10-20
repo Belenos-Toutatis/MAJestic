@@ -43,6 +43,9 @@ pub struct InstallerInfo {
     pub architecture: Option<String>,
     /// `user`, `machine`, or `None` when unspecified.
     pub scope: Option<String>,
+    /// `InstallerLocale` (`en-US`…), the root-level one when the installer
+    /// entry has none.
+    pub locale: Option<String>,
 }
 
 /// Installers of `id` at `version` (`<id>.installer.yaml`), cached like
@@ -63,6 +66,17 @@ pub fn fetch_installers(id: &str, version: &str, cache_dir: &Path) -> anyhow::Re
 /// `scope` when given (`user`/`machine`), first one otherwise.
 pub fn pick_installer(installers: &[InstallerInfo], scope: Option<crate::model::Scope>) -> Option<&InstallerInfo> {
     pick_for_arch(installers, scope, std::env::consts::ARCH)
+}
+
+/// The language of every installer, when they all declare the same one:
+/// winget has no other language to choose from. `None` when one declares
+/// none (winget then accepts it whatever the language) or when they differ.
+pub fn single_locale(installers: &[InstallerInfo]) -> Option<&str> {
+    let first = installers.first()?.locale.as_deref()?;
+    installers
+        .iter()
+        .all(|i| i.locale.as_deref().is_some_and(|l| l.eq_ignore_ascii_case(first)))
+        .then_some(first)
 }
 
 /// A broken manifest: the installer announced for `available` names the
@@ -296,6 +310,8 @@ struct InstallerManifest {
     installer_type: Option<String>,
     #[serde(deserialize_with = "lenient_string")]
     scope: Option<String>,
+    #[serde(deserialize_with = "lenient_string")]
+    installer_locale: Option<String>,
     #[serde(deserialize_with = "lenient_seq")]
     installers: Vec<InstallerEntry>,
 }
@@ -311,6 +327,8 @@ struct InstallerEntry {
     scope: Option<String>,
     #[serde(deserialize_with = "lenient_string")]
     installer_url: Option<String>,
+    #[serde(deserialize_with = "lenient_string")]
+    installer_locale: Option<String>,
 }
 
 impl InstallerManifest {
@@ -318,6 +336,7 @@ impl InstallerManifest {
         let lower = |s: Option<String>| s.map(|s| s.to_ascii_lowercase());
         let root_type = lower(self.installer_type);
         let root_scope = lower(self.scope);
+        let root_locale = self.installer_locale;
         self.installers
             .into_iter()
             .filter_map(|entry| {
@@ -327,6 +346,7 @@ impl InstallerManifest {
                     installer_type: lower(entry.installer_type).or_else(|| root_type.clone()),
                     architecture: lower(entry.architecture),
                     scope: lower(entry.scope).or_else(|| root_scope.clone()),
+                    locale: entry.installer_locale.or_else(|| root_locale.clone()),
                 })
             })
             .collect()
@@ -459,6 +479,7 @@ mod tests {
             installer_type: Some("exe".into()),
             architecture: arch.map(str::to_string),
             scope: scope.map(str::to_string),
+            locale: None,
         }
     }
 
@@ -556,6 +577,40 @@ ManifestVersion: 1.6.0
         assert_eq!(installers[1].installer_type.as_deref(), Some("msi"));
         assert_eq!(installers[2].scope.as_deref(), Some("user"));
         assert_eq!(installers[3].architecture.as_deref(), Some("arm64"));
+    }
+
+    #[test]
+    fn installer_languages() {
+        // Kieirra.Murmure 2.0.3: one English installer, declared at the root.
+        let murmure = r#"PackageIdentifier: Kieirra.Murmure
+PackageVersion: 2.0.3
+InstallerLocale: en-US
+InstallerType: wix
+Scope: machine
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/Kieirra/murmure/releases/download/2.0.3/Murmure_x64.msi
+"#;
+        let installers = parse_yaml::<InstallerManifest>(murmure).unwrap().into_installers();
+        assert_eq!(installers[0].locale.as_deref(), Some("en-US"));
+        assert_eq!(single_locale(&installers), Some("en-US"));
+
+        // An entry's own language wins over the root one.
+        let two = r#"InstallerLocale: en-US
+Installers:
+- InstallerUrl: https://example.com/en.exe
+- InstallerUrl: https://example.com/fr.exe
+  InstallerLocale: fr-FR
+"#;
+        let installers = parse_yaml::<InstallerManifest>(two).unwrap().into_installers();
+        assert_eq!(installers[1].locale.as_deref(), Some("fr-FR"));
+        assert_eq!(single_locale(&installers), None);
+
+        let lang = |l: Option<&str>| InstallerInfo { locale: l.map(str::to_string), ..inst(Some("x64"), None, "u") };
+        assert_eq!(single_locale(&[lang(Some("en-US")), lang(Some("EN-us"))]), Some("en-US"));
+        assert_eq!(single_locale(&[lang(Some("en-US")), lang(None)]), None);
+        assert_eq!(single_locale(&[lang(None)]), None);
+        assert_eq!(single_locale(&[]), None);
     }
 
     #[test]

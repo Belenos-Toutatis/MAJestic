@@ -8,8 +8,8 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use crate::{exec, version, winget};
-use crate::model::{FailureKind, JobAction, JobEvent, JobRequest, JobState, Source};
+use crate::{exec, intel, version, winget};
+use crate::model::{CommandSpec, FailureKind, JobAction, JobEvent, JobRequest, JobState, Source};
 use crate::pkgmgr;
 use crate::winget::codes::{self, Outcome};
 
@@ -126,19 +126,28 @@ pub fn run_job(job: &JobRequest, emit: &mut dyn FnMut(JobEvent)) -> JobState {
         emit(JobEvent { message: Some(line.to_string()), ..JobEvent::state(&job.key, phase.clone()) });
     };
 
-    let (code, lines) = match exec::run_streaming(&spec, JOB_TIMEOUT, &mut on_line) {
+    let (mut code, mut lines) = match run_spec(job, &spec, &mut on_line) {
         Ok(result) => result,
-        Err(e) => {
-            let text = format!("{e:#}");
-            log::warn!("job {}: {text}", job.key);
-            let kind = if e.downcast_ref::<exec::TimedOut>().is_some() {
-                FailureKind::Timeout
-            } else {
-                FailureKind::Unknown
-            };
-            return JobState::Failed { code: None, kind, log_excerpt: text };
-        }
+        Err(failed) => return failed,
     };
+
+    if let Some(locale) = locale_retry(job, code) {
+        match winget::build_command_with_locale(job, &locale) {
+            Ok(spec) => {
+                log::info!(
+                    "job {}: exit code {code:#x}, no applicable update; retrying with the installers' language: {} {}",
+                    job.key,
+                    spec.program,
+                    spec.args.join(" ")
+                );
+                (code, lines) = match run_spec(job, &spec, &mut on_line) {
+                    Ok(result) => result,
+                    Err(failed) => return failed,
+                };
+            }
+            Err(e) => log::warn!("job {}: cannot retry with locale {locale:?}: {e:#}", job.key),
+        }
+    }
 
     let outcome = codes::classify(job.source, code);
     log::info!("job {}: exit code {code:#x} → {outcome:?}", job.key);
@@ -162,6 +171,53 @@ pub fn run_job(job: &JobRequest, emit: &mut dyn FnMut(JobEvent)) -> JobState {
             JobState::Failed { code: Some(code), kind, log_excerpt: lines[start..].join("\n") }
         }
     }
+}
+
+/// Runs one command of `job`; when it cannot run at all, the job's final state.
+fn run_spec(job: &JobRequest, spec: &CommandSpec, on_line: &mut dyn FnMut(&str)) -> Result<(i64, Vec<String>), JobState> {
+    exec::run_streaming(spec, JOB_TIMEOUT, on_line).map_err(|e| {
+        let text = format!("{e:#}");
+        log::warn!("job {}: {text}", job.key);
+        let kind = if e.downcast_ref::<exec::TimedOut>().is_some() {
+            FailureKind::Timeout
+        } else {
+            FailureKind::Unknown
+        };
+        JobState::Failed { code: None, kind, log_excerpt: text }
+    })
+}
+
+/// The language to retry a winget upgrade with, when winget found "no
+/// applicable update" only because of the installed language.
+///
+/// winget reads the `Language` of the installed program; an MSI that sets it
+/// to 0 (neutral) is taken for the user's language (fr-FR), and an installer
+/// in another language no longer "matches" it (case of Kieirra.Murmure 2.0.3,
+/// English only). When every installer of the new version has the same
+/// language there is nothing else winget could pick: retrying with
+/// `--locale <that language>` installs the very same file. Reads the
+/// winget-pkgs manifest (cached by the scan), only when online sources are
+/// allowed.
+fn locale_retry(job: &JobRequest, code: i64) -> Option<String> {
+    let version = retry_version(job, code)?;
+    if !crate::settings::Settings::load().online_intel {
+        return None;
+    }
+    let installers = intel::manifest::fetch_installers(&job.id, version, &crate::paths::cache_dir())
+        .map_err(|e| log::debug!("job {}: cannot read the manifest: {e:#}", job.key))
+        .ok()?;
+    intel::manifest::single_locale(&installers).map(str::to_string)
+}
+
+/// The version whose manifest [`locale_retry`] reads: winget upgrades that
+/// ended in `UPDATE_NOT_APPLICABLE` only.
+fn retry_version(job: &JobRequest, code: i64) -> Option<&str> {
+    let upgrade = matches!(job.source, Source::Winget | Source::Registry)
+        && matches!(job.action, JobAction::Upgrade | JobAction::Interactive);
+    if !upgrade || code != winget::UPDATE_NOT_APPLICABLE {
+        return None;
+    }
+    job.to_version.as_deref().filter(|v| !version::is_unknown(v))
 }
 
 /// Waits before each check of [`unchanged_version`]: some installers hand the
@@ -214,5 +270,35 @@ mod tests {
         assert!(!all_still(&v(&["1.142.0"]), "1.141.2"));
         assert!(!all_still(&v(&["1.141.2", "1.142.0"]), "1.141.2"));
         assert!(!all_still(&[], "1.141.2"));
+    }
+
+    #[test]
+    fn locale_retry_only_for_inapplicable_winget_upgrades() {
+        let job = |source, action, to: Option<&str>| JobRequest {
+            key: "winget:Kieirra.Murmure".into(),
+            source,
+            id: "Kieirra.Murmure".into(),
+            name: "murmure".into(),
+            action,
+            from_version: Some("1.11.3".into()),
+            to_version: to.map(str::to_string),
+            scope: None,
+            include_unknown: false,
+            include_pinned: false,
+            download_size: None,
+            installer_type: Some("wix".into()),
+        };
+        let na = winget::UPDATE_NOT_APPLICABLE;
+        let upgrade = job(Source::Winget, JobAction::Upgrade, Some("2.0.3"));
+        assert_eq!(retry_version(&upgrade, na), Some("2.0.3"));
+        assert_eq!(retry_version(&job(Source::Winget, JobAction::Interactive, Some("2.0.3")), na), Some("2.0.3"));
+        // Another failure, another action or source, unknown target version: no retry.
+        assert_eq!(retry_version(&upgrade, 0x8A15_0101), None);
+        assert_eq!(retry_version(&upgrade, 0), None);
+        assert_eq!(retry_version(&job(Source::Winget, JobAction::ForceReinstall, Some("2.0.3")), na), None);
+        assert_eq!(retry_version(&job(Source::Winget, JobAction::Uninstall, Some("2.0.3")), na), None);
+        assert_eq!(retry_version(&job(Source::MsStore, JobAction::Upgrade, Some("2.0.3")), na), None);
+        assert_eq!(retry_version(&job(Source::Winget, JobAction::Upgrade, None), na), None);
+        assert_eq!(retry_version(&job(Source::Winget, JobAction::Upgrade, Some("Unknown")), na), None);
     }
 }

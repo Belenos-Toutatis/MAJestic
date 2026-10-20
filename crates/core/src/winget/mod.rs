@@ -31,7 +31,7 @@ const DEFAULT_SOURCES: &[&str] = &["winget", "msstore", "winget-font"];
 /// `APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND`: empty result, not a failure.
 const NO_APPLICATIONS_FOUND: i64 = 0x8A15_0014;
 /// `APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE`.
-const UPDATE_NOT_APPLICABLE: i64 = 0x8A15_002B;
+pub const UPDATE_NOT_APPLICABLE: i64 = 0x8A15_002B;
 
 /// `list` and `upgrade` refresh the sources first, which can be slow.
 const LIST_TIMEOUT: Duration = Duration::from_secs(300);
@@ -234,6 +234,28 @@ pub fn build_command(job: &JobRequest) -> anyhow::Result<CommandSpec> {
     push(COMMON_FLAGS);
     push(&[if job.action == JobAction::Interactive { "--interactive" } else { "--silent" }]);
     Ok(CommandSpec { program: PROGRAM.to_string(), args })
+}
+
+/// [`build_command`] plus `--locale <locale>`: the installer language winget
+/// must take (see `jobs::locale_retry`).
+pub fn build_command_with_locale(job: &JobRequest, locale: &str) -> anyhow::Result<CommandSpec> {
+    check_locale(locale)?;
+    let mut spec = build_command(job)?;
+    spec.args.extend(["--locale".to_string(), locale.to_string()]);
+    Ok(spec)
+}
+
+/// A BCP 47 tag such as `en-US` or `zh-Hans-CN`.
+fn check_locale(locale: &str) -> anyhow::Result<()> {
+    let valid = locale.len() <= 35
+        && locale.split('-').enumerate().all(|(i, part)| {
+            let len_ok = if i == 0 { (2..=3).contains(&part.len()) } else { (1..=8).contains(&part.len()) };
+            len_ok && part.chars().all(|c| c.is_ascii_alphanumeric())
+        });
+    if !valid {
+        bail!("invalid installer locale: {locale:?}");
+    }
+    Ok(())
 }
 
 /// Runs winget with [`COMMON_FLAGS`].
@@ -511,6 +533,21 @@ mod tests {
             "upgrade --id Contoso.Sync --exact --source winget --include-unknown --include-pinned \
              --accept-package-agreements --accept-source-agreements --disable-interactivity --silent"
         );
+    }
+
+    #[test]
+    fn upgrade_with_installer_locale() {
+        let murmure = job(Source::Winget, "Kieirra.Murmure", JobAction::Upgrade);
+        let spec = build_command_with_locale(&murmure, "en-US").unwrap();
+        assert_eq!(
+            args(&spec),
+            "upgrade --id Kieirra.Murmure --exact --source winget --accept-package-agreements \
+             --accept-source-agreements --disable-interactivity --silent --locale en-US"
+        );
+        assert!(build_command_with_locale(&murmure, "zh-Hans-CN").is_ok());
+        for bad in ["", "e", "en_US", "en-US --force", "en--US", "en-aaaaaaaa-bbbbbbbb-cccccccc-dddddddd"] {
+            assert!(build_command_with_locale(&murmure, bad).is_err(), "{bad:?}");
+        }
     }
 
     #[test]

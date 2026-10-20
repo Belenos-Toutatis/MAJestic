@@ -98,6 +98,14 @@ Argument names are camelCase on the JS side.
   downloadSize: item.downloadSize, installerType: item.installerType }
 ```
 
+`toVersion` also lets `run_job` retry a winget upgrade that ended in
+`UPDATE_NOT_APPLICABLE` (`0x8A15002B`): when every installer of that version in
+the winget-pkgs manifest has the same `InstallerLocale`, the command runs once
+more with `--locale <it>`. winget reads the installed program's `Language`; an
+MSI that sets it to 0 is taken for the user's language (fr-FR) and an
+English-only installer is then rejected (Kieirra.Murmure 2.0.3). Only when
+online sources are allowed; the manifest is usually already cached by the scan.
+
 ## Time estimates
 
 Before starting, `estimate_jobs` returns per-job download/install estimates:
