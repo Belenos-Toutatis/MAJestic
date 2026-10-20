@@ -207,7 +207,7 @@ async function scan() {
     items,
     stats: stats(items),
     warnings,
-    environment: { appVersion: '0.1.1', winget: '1.11.510', chocolatey: settings.useChocolatey ? '2.5.1' : null, scoop: settings.useScoop, elevated: false, adminMember: true, os: 'Windows 11 Home 25H2', online: true },
+    environment: { appVersion: '0.1.2', winget: '1.11.510', chocolatey: settings.useChocolatey ? '2.5.1' : null, scoop: settings.useScoop, elevated: false, adminMember: true, os: 'Windows 11 Home 25H2', online: true },
     scannedAt: new Date().toISOString(),
   };
 
@@ -457,7 +457,7 @@ function applySuccess(job) {
 const handlers = {
   async app_info() {
     await sleep(60);
-    return { appVersion: params.get('updated') ? '0.2.0' : '0.1.1', updatedFrom: params.get('updated') ? '0.1.1' : null, uiLanguage: navigator.language || 'fr-FR', elevated: false, adminMember: true, dataDir: 'C:\\Users\\demo\\AppData\\Local\\MAJestic' };
+    return { appVersion: params.get('updated') ? '0.2.0' : '0.1.2', updatedFrom: params.get('updated') ? '0.1.2' : null, uiLanguage: navigator.language || 'fr-FR', elevated: false, adminMember: true, dataDir: 'C:\\Users\\demo\\AppData\\Local\\MAJestic' };
   },
   async get_settings() {
     await sleep(60);
