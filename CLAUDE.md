@@ -149,6 +149,14 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   Ses étiquettes portent une révision (`v9.3.5-2` = 9.3.5.0 installé), lue comme
   « avant 9.3.5 » : pas de fausse alerte. FileZilla n'a pas de fiche winget et son
   site refuse les robots (403) : sa version est vérifiée via Chocolatey.
+- **Installateurs restés sur le disque** (`cleanup.rs`, Paramètres › Installation) :
+  sous-dossiers de `%TEMP%\WinGet` (sauf `cache`) et `%TEMP%\chocolatey`, fichiers du
+  `cache` de Scoop, plus vieux que 10 min ; refusé pendant un lot ou si winget,
+  choco ou msiexec tourne. Les vraies suppressions se font au clic de l'utilisateur.
+- **Descriptif** (`intel/about.rs`, commande `describe_item`, panneau détails) : texte
+  de MAJestic pour les logiciels connus, manifeste Scoop local, fiche winget-pkgs en
+  `fr-FR` si publiée (sinon langue par défaut ; traduction absente mémorisée par un
+  fichier `.absent`), sinon catalogue Chocolatey (début de la description Markdown).
 - **Retour arrière** : winget, Microsoft Store et Chocolatey (`choco::list_versions`).
 - **Vérification planifiée** : tâche « MAJestic UpdateCheck » (XML UTF-16 LE avec BOM,
   `StartWhenAvailable`, lance `--check`). Toasts via l'AUMID `MAJestic.UpdateAssistant`

@@ -65,6 +65,7 @@ let history = initialHistory();
 let xodoFailedOnce = false;
 let running = null; // current batch
 let lookupTimer = null;
+let mockLeftovers = 642 * MB; // installers left in %TEMP%\WinGet…
 
 if (SCENARIO === 'empty') {
   dataset = dataset.map((i) => (i.kind === 'update' || i.kind === 'manual')
@@ -575,6 +576,17 @@ const handlers = {
   async open_windows_update({ page }) {
     console.info('[mock] open_windows_update', page);
     return null;
+  },
+  async leftover_downloads() {
+    await sleep(400 / SPEED);
+    return { bytes: mockLeftovers, entries: mockLeftovers ? 3 : 0 };
+  },
+  async clean_downloads() {
+    await sleep(900 / SPEED);
+    if (running) throw 'busy';
+    const freed = mockLeftovers;
+    mockLeftovers = 0;
+    return { freed, removed: freed ? 3 : 0, failed: 0 };
   },
   async describe_item({ request }) {
     await sleep(500 / SPEED);

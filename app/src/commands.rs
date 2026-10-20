@@ -8,7 +8,7 @@ use majestic_core::intel::about::{self, About, AboutRequest};
 use majestic_core::model::*;
 use majestic_core::settings::Settings;
 use majestic_core::system::{elevation, icons, procs, registry, shell};
-use majestic_core::{history, paths, pkgmgr, scan, scheduler, winget};
+use majestic_core::{cleanup, history, paths, pkgmgr, scan, scheduler, winget};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -137,6 +137,31 @@ fn schedule_status_now() -> Result<ScheduleStatus, String> {
         next_run,
         last_check: scheduler::load_last_check(),
     })
+}
+
+/// Installers left on disk by winget, Chocolatey and Scoop.
+#[tauri::command]
+pub async fn leftover_downloads() -> Result<cleanup::Leftovers, String> {
+    blocking(|| cleanup::measure(&cleanup::download_dirs())).await
+}
+
+/// Removes them; refused (`busy`) while MAJestic or a package manager
+/// is installing something.
+#[tauri::command]
+pub async fn clean_downloads(state: State<'_, AppState>) -> Result<cleanup::Cleaned, String> {
+    if state.batch.lock().map(|b| b.is_some()).unwrap_or(true) {
+        return Err("busy".into());
+    }
+    blocking(|| {
+        let busy = procs::snapshot()
+            .iter()
+            .any(|p| cleanup::BUSY_PROCESSES.iter().any(|b| p.name.eq_ignore_ascii_case(b)));
+        if busy {
+            return Err("busy".to_string());
+        }
+        Ok(cleanup::clean(&cleanup::download_dirs()))
+    })
+    .await?
 }
 
 /// What a program does, for the details panel (`null` when nobody says).

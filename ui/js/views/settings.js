@@ -4,7 +4,7 @@ import { h, clear } from '../dom.js';
 import { icon } from '../icons.js';
 import { t, fmt } from '../i18n.js';
 import { invoke, errorText } from '../api.js';
-import { state, bus, settings, itemByKey } from '../state.js';
+import { state, bus, settings, itemByKey, runActive } from '../state.js';
 import { saveSettings, unignore, openLogs } from '../actions.js';
 import { toggle, segmented, select, button, infoDot, iconButton, badge, banner, spinner } from '../components/widgets.js';
 import { toast } from '../components/toast.js';
@@ -26,6 +26,9 @@ export function mountSettings(container) {
   let schedDraft = null;    // settings being edited, applied by the buttons only
   let schedBusy = false;
   let appUpdateRowEl = null;
+  let leftovers = null;     // leftover_downloads (null while measuring)
+  let cleaning = false;
+  let leftoverRowEl = null;
 
   function row({ ic, title, desc, control, info, id, disabled }) {
     return h('div', { class: ['set-row', disabled ? 'is-disabled' : null] },
@@ -111,7 +114,8 @@ export function mountSettings(container) {
         ic: 'shield', title: t('settings.admin'), desc: adminText(),
         info: [t('settings.admin'), t('settings.adminInfo')],
         control: h('span', { class: 'badge outline', tabindex: 0, tip: [t('settings.admin'), t('settings.adminInfo')] }, state.info?.elevated ? t('settings.adminElevated') : t('settings.adminStandard')),
-      })));
+      }),
+      (leftoverRowEl = leftoverRow())));
 
     // Schedule: summary of what is set, then an explicit button.
     schedHost = h('section', { class: 'set-group sched-group' });
@@ -157,6 +161,58 @@ export function mountSettings(container) {
         ic: 'notes', title: t('settings.logs'), desc: t('settings.logsDesc'),
         control: button({ label: t('common.openLogs'), icon: 'folder', size: 'small', tip: [t('common.openLogs'), t('common.openLogsTip')], onClick: openLogs }),
       })));
+  }
+
+  // ---------------------------------------------------------------- leftover installers
+
+  function leftoverRow() {
+    const bytes = leftovers?.bytes || 0;
+    const busy = cleaning || runActive();
+    const desc = leftovers === null ? t('settings.leftovers.loading')
+      : bytes ? t('settings.leftovers.found', { size: fmt.bytes(bytes) })
+        : t('settings.leftovers.none');
+    return row({
+      ic: 'disk', title: t('settings.leftovers.title'), desc,
+      info: [t('settings.leftovers.title'), t('settings.leftovers.info')],
+      control: h('div', { class: 'row-flex' },
+        cleaning ? spinner(true) : null,
+        button({
+          label: bytes ? t('settings.leftovers.clean', { size: fmt.bytes(bytes) }) : t('settings.leftovers.cleanNone'),
+          icon: 'trash', size: 'small', disabled: !bytes || busy,
+          tip: [t('settings.leftovers.title'), runActive() ? t('settings.leftovers.busy') : bytes ? t('settings.leftovers.cleanTip') : t('settings.leftovers.noneTip')],
+          onClick: cleanLeftovers,
+        })),
+    });
+  }
+
+  function refreshLeftoverRow() {
+    if (!leftoverRowEl?.isConnected) return;
+    const hadFocus = leftoverRowEl.contains(document.activeElement);
+    const next = leftoverRow();
+    leftoverRowEl.replaceWith(next);
+    leftoverRowEl = next;
+    if (hadFocus) (next.querySelector('.set-control button:not([disabled])') || next.querySelector('.info-dot, button'))?.focus({ preventScroll: true });
+  }
+
+  async function loadLeftovers() {
+    try { leftovers = await invoke('leftover_downloads'); } catch (e) { console.warn('[leftovers]', e); leftovers = { bytes: 0, entries: 0 }; }
+    refreshLeftoverRow();
+  }
+
+  async function cleanLeftovers() {
+    if (cleaning) return;
+    cleaning = true;
+    refreshLeftoverRow();
+    try {
+      const r = await invoke('clean_downloads');
+      if (r.failed) toast(t('settings.leftovers.partly', { count: r.failed, size: fmt.bytes(r.freed) }), { tone: 'warning', duration: 7000 });
+      else toast(t('settings.leftovers.done', { size: fmt.bytes(r.freed) }), { tone: 'success', duration: 5000 });
+    } catch (e) {
+      const text = errorText(e);
+      toast(text === 'busy' ? t('settings.leftovers.busy') : t('settings.leftovers.failed', { error: text }), { tone: 'danger', duration: 7000 });
+    }
+    cleaning = false;
+    await loadLeftovers();
   }
 
   // ---------------------------------------------------------------- MAJestic's own updates
@@ -403,6 +459,7 @@ export function mountSettings(container) {
 
   render();
   loadSchedule();
+  loadLeftovers();
   const offs = [
     bus.on('settings', () => {
       const focusedId = document.activeElement?.id;

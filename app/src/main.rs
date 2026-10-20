@@ -76,6 +76,8 @@ fn main() {
             commands::open_installed_apps,
             commands::schedule_status,
             commands::describe_item,
+            commands::leftover_downloads,
+            commands::clean_downloads,
             commands::set_schedule,
             appupdate::check_app_update,
             appupdate::install_app_update,

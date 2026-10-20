@@ -101,7 +101,7 @@ impl Launcher {
 }
 
 /// Scoop's folder: `%SCOOP%`, else `%USERPROFILE%\scoop`.
-fn root() -> Option<PathBuf> {
+pub fn root() -> Option<PathBuf> {
     match env::var_os("SCOOP").filter(|dir| !dir.is_empty()) {
         Some(dir) => Some(PathBuf::from(dir)),
         None => Some(PathBuf::from(env::var_os("USERPROFILE")?).join("scoop")),

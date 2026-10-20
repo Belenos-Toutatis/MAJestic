@@ -58,6 +58,9 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
   (sécurité, pilotes, antivirus Defender) et signale un redémarrage nécessaire,
   avec un bouton qui ouvre Windows Update et lance la recherche. C'est Windows qui
   les installe, comme d'habitude.
+- **Libérer de la place** : MAJestic repère les installateurs restés sur le disque
+  après une installation échouée ou interrompue (winget, Chocolatey, cache de Scoop)
+  et les supprime d'un clic (Paramètres › Installation).
 - **Ce que fait chaque logiciel** : son panneau affiche un descriptif (catalogue
   winget en français quand il existe, sinon en anglais ; Chocolatey ; Scoop).
 - **Désinstaller proprement** : le panneau de chaque logiciel propose la bonne

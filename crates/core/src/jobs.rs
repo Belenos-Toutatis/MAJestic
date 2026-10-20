@@ -22,7 +22,7 @@ fn looks_like_url(line: &str) -> bool {
     line.contains("http://") || line.contains("https://")
 }
 
-fn dir_size(dir: &Path) -> u64 {
+pub(crate) fn dir_size(dir: &Path) -> u64 {
     let Ok(entries) = std::fs::read_dir(dir) else { return 0 };
     entries
         .flatten()
