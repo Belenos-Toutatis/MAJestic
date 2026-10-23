@@ -396,6 +396,14 @@ async function runBatch(jobs, closeApps, allowElevation) {
       queue(job.key, dlFrac * dlWeight, remaining);
     }
 
+    if (job.key === 'winget:Microsoft.Edge' && job.action?.type !== 'uninstall') {
+      await sleep(400);
+      finish(job, {
+        type: 'failed', code: 2316632206, kind: 'technology_mismatch',
+        logExcerpt: 'A newer version was found, but the installation technology is different from the current version installed. Please uninstall the package and install the newer version.',
+      }, t0, est, est.download);
+      continue;
+    }
     if (job.key === 'winget:Xodo.PDFStudio' && !xodoFailedOnce && job.action?.type !== 'interactive') {
       xodoFailedOnce = true;
       await sleep(500);
@@ -590,6 +598,10 @@ const handlers = {
     console.info('[mock] export_inventory', text?.fileName);
     const packages = dataset.filter((i) => ['winget', 'msstore', 'chocolatey', 'scoop'].includes(i.source)).length;
     return { path: `C:\\Users\\demo\\Documents\\${text?.fileName || 'Logiciels MAJestic.json'}`, packages, manual: 6 };
+  },
+  async open_self_update({ key }) {
+    console.info('[mock] open_self_update', key);
+    return null;
   },
   async reveal_export() {
     console.info('[mock] reveal_export');

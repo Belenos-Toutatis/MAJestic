@@ -119,6 +119,19 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   (`manifest::single_locale`) : c'est le même fichier, aucun choix de langue n'est
   changé. Diagnostic : `winget upgrade --id X --verbose-logs`, puis la ligne
   « Locale Comparator » du journal de winget (`IsInstalledLocale: 1`).
+- **Technologie d'installation (winget)** : winget refuse de mettre à jour un programme
+  installé par un MSI avec un installateur classique (exe, inno, nullsoft, burn), ou
+  l'inverse (`0x8A15008E`, `FailureKind::TechnologyMismatch`, « Installé autrement »).
+  Cas réel : Microsoft Edge, installé par Windows avec son `setup.exe`, alors que la
+  fiche winget n'a que le MSI entreprise — sur tous les PC. Prévention à l'analyse :
+  `manifest::technology_mismatch` compare `WindowsInstaller` du registre aux types des
+  installateurs de la fiche (type imbriqué des zip, types des `AppsAndFeaturesEntries`),
+  prudemment (MSIX, portable ou inconnu : on ne prédit rien) → raison
+  `technology_mismatch`, mise à jour non cochée. Mémoire : `history::technology_mismatches`
+  (dernier essai échoué ainsi). Navigateurs (`self_updaters.rs` : Edge, Chrome,
+  Brave) : alternative `self_update`, commande `open_self_update` qui lance
+  `msedge.exe edge://settings/help` (refusé si MAJestic tourne en administrateur) ;
+  vérifié : Edge télécharge et installe aussitôt sa mise à jour.
 - **Mise à jour de MAJestic lui-même** (`selfupdate.rs` dans le moteur, `appupdate.rs`
   dans l'app, `ui/js/appupdate.js`) : dernière version GitHub, téléchargement en
   `MAJestic.exe.new`, contrôle SHA-256 + version du fichier, exe renommé en `.old`,

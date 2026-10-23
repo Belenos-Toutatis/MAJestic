@@ -54,6 +54,21 @@ export function buildDataset() {
       },
       alternatives: [{ type: 'install_version' }],
     }),
+    // Installed by Windows with its own setup.exe: winget only has the MSI.
+    item({
+      key: 'winget:Microsoft.Edge', id: 'Microsoft.Edge', name: 'Microsoft Edge', publisher: 'Microsoft Corporation',
+      installedVersion: '155.0.4283.62', availableVersion: '156.0.4314.42', kind: 'update', scope: 'machine',
+      installLocation: `${PF} (x86)\\Microsoft\\Edge\\Application`,
+      links: { homepage: 'https://www.microsoft.com/edge', download: null, releaseNotes: null, support: null },
+      downloadSize: 182 * MB, installerType: 'msi',
+      assessment: {
+        priority: 'recommended', preselect: false, reasons: [
+          { type: 'exposed', category: 'browser' },
+          { type: 'technology_mismatch' },
+        ],
+      },
+      alternatives: [{ type: 'install_version' }, { type: 'self_update', app: 'Microsoft Edge' }],
+    }),
     item({
       key: 'winget:7zip.7zip', id: '7zip.7zip', name: '7-Zip', publisher: 'Igor Pavlov',
       installedVersion: '24.08', availableVersion: '25.01', kind: 'update', scope: 'machine',

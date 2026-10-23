@@ -53,6 +53,7 @@ Argument names are camelCase on the JS side.
 | `get_settings` | – | `Settings` |
 | `save_settings` | `{ settings }` | `Settings` (`schedule` ignored: kept as stored) |
 | `export_inventory` | `{ text: { title, filterName, fileName } }` | `{ path, packages, manual } \| null` ("Save as" dialog in Documents, then writes the `majestic-inventory` JSON: packages of winget, the Store, Chocolatey (`choco list -r`) and Scoop (`apps` folder), plus the other applications as `manual` entries with their link; error `no_scan`) |
+| `open_self_update` | `{ key }` | opens the page where a browser updates itself (`self_update` alternative: `msedge.exe edge://settings/help`, Chrome, Brave); error `elevated` when MAJestic runs as administrator |
 | `reveal_export` | – | shows the last exported file in Explorer |
 | `import_inventory` | `{ text: { title, filterName } }` | `{ file, plan: { createdAt, toInstall, installed, manual, manualInstalled } } \| null` ("Open" dialog, file ≤ 5 MB, compared with the last scan by key, and by name without version for `manual`; errors `no_scan`, `invalid_file`) |
 | `leftover_downloads` | – | `{ bytes, entries }` (installers left in `%TEMP%\WinGet\<id>.<version>`, `%TEMP%\chocolatey\<id>` and Scoop's `cache`; winget's own `cache` folder and loose log files are kept; entries younger than 10 min are skipped) |

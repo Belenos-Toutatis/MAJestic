@@ -83,8 +83,10 @@ fn winget(code: u32) -> Option<Outcome> {
         // NO_APPLICABLE_SFSCLIENT_PACKAGE, SFSCLIENT_PACKAGE_NOT_SUPPORTED, INSTALL_SYSTEM_NOT_SUPPORTED
         0x8A15_0010 | 0x8A15_0080 | 0x8A15_0082 | 0x8A15_0084 | 0x8A15_0113 => fail(NoApplicableInstaller),
         // UPDATE_NOT_APPLICABLE, UPGRADE_VERSION_NOT_NEWER, UPGRADE_VERSION_UNKNOWN, PACKAGE_IS_PINNED,
-        // UPDATE_INSTALL_TECHNOLOGY_MISMATCH, INSTALL_UPGRADE_NOT_SUPPORTED
-        0x8A15_002B | 0x8A15_004F | 0x8A15_0050 | 0x8A15_0068 | 0x8A15_008E | 0x8A15_0114 => fail(UpgradeNotApplicable),
+        // INSTALL_UPGRADE_NOT_SUPPORTED
+        0x8A15_002B | 0x8A15_004F | 0x8A15_0050 | 0x8A15_0068 | 0x8A15_0114 => fail(UpgradeNotApplicable),
+        // UPDATE_INSTALL_TECHNOLOGY_MISMATCH
+        0x8A15_008E => fail(TechnologyMismatch),
         // INSTALL_DOWNGRADE
         0x8A15_010E => fail(DowngradeRefused),
         // PORTABLE_PACKAGE_ALREADY_EXISTS, PACKAGE_ALREADY_INSTALLED, FONT_ALREADY_INSTALLED,
@@ -194,6 +196,7 @@ mod tests {
         assert_eq!(failure(Source::Winget, 0x8A15_0011), Some(HashMismatch));
         assert_eq!(failure(Source::Winget, 0x8A15_0010), Some(NoApplicableInstaller));
         assert_eq!(failure(Source::Winget, 0x8A15_002B), Some(UpgradeNotApplicable));
+        assert_eq!(failure(Source::Winget, 0x8A15_008E), Some(TechnologyMismatch));
         assert_eq!(failure(Source::Winget, 0x8A15_010E), Some(DowngradeRefused));
         assert_eq!(failure(Source::Winget, 0x8A15_0061), Some(AlreadyInstalled));
         assert_eq!(failure(Source::Winget, 0x8A15_0104), Some(MissingDependency));

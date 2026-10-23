@@ -144,6 +144,7 @@ const REASON_META = {
   duplicate_manager: { tone: 'uncertain', icon: 'duplicate' },
   stale_installer: { tone: 'warning', icon: 'warning' },
   repeated_failures: { tone: 'warning', icon: 'error' },
+  technology_mismatch: { tone: 'warning', icon: 'warning' },
 };
 
 /** After this many failed attempts at one version, ignoring it is suggested (history::FAILURE_LIMIT). */
@@ -252,6 +253,7 @@ const FAILURE_ACTIONS = {
   hash_mismatch: ['download', 'retry'],
   no_applicable_installer: ['download'],
   upgrade_not_applicable: ['interactive', 'download'],
+  technology_mismatch: ['selfUpdate', 'download'],
   downgrade_refused: ['download'],
   already_installed: [],
   missing_dependency: ['retry', 'download'],

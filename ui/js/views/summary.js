@@ -6,7 +6,7 @@ import { icon } from '../icons.js';
 import { t, fmt } from '../i18n.js';
 import { state, itemByKey } from '../state.js';
 import { stateType, failureInfo, needsElevation, FAILURE_LIMIT } from '../model.js';
-import { startJobs, backToResults, go, openUrl, openLogs, webSearchUrl, ignoreItem } from '../actions.js';
+import { startJobs, backToResults, go, openUrl, openLogs, webSearchUrl, ignoreItem, openSelfUpdate } from '../actions.js';
 import { avatar } from '../components/avatar.js';
 import { button, banner, emptyState, badge } from '../components/widgets.js';
 
@@ -212,6 +212,14 @@ function failureCard(entry, run) {
       case 'logs':
         actions.push(button({ label: t('common.openLogs'), icon: 'folder', size: 'small', variant: 'subtle', tip: [t('common.openLogs'), t('common.openLogsTip')], onClick: openLogs }));
         break;
+      case 'selfUpdate': {
+        const app = (item.alternatives || []).find((x) => x?.type === 'self_update')?.app;
+        if (app) {
+          const label = t('alternatives.selfUpdate', { app });
+          actions.push(button({ label, icon: 'external', size: 'small', variant: 'primary', tip: [label, t('alternatives.selfUpdateTip', { app })], onClick: () => openSelfUpdate(item) }));
+        }
+        break;
+      }
       default:
     }
   }

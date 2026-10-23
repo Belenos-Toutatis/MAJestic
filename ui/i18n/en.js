@@ -477,6 +477,11 @@ export default {
       title: "Managed by two package managers",
       text: "This software also seems installed or tracked by {other}. Update it with a single manager to avoid conflicts.",
     },
+    technology_mismatch: {
+      label: "Installed differently",
+      title: "winget cannot update this program",
+      text: "It was installed with another kind of installer than the one of its winget entry (for instance its own setup instead of an MSI): winget would refuse to update it, so it is not selected. Update it with its own system (see Actions) or from the publisher’s website.",
+    },
     repeated_failures: {
       label: "Keeps failing",
       title: "This version already failed {count} times",
@@ -664,6 +669,10 @@ export default {
     latestElsewhereText: "Found in a public catalog. Download it from the publisher’s website to install it.",
     managedElsewhere: "Updated by {by}",
     managedElsewhereText: "{by} takes care of this program’s updates: nothing to do here.",
+    selfUpdate: "Update in {app}",
+    selfUpdateText: "{app} updates itself: its “About” page checks for and installs the new version right away, then offers to restart it.",
+    selfUpdateBtn: "Open {app}",
+    selfUpdateTip: "Opens the “About” page of {app}, which starts its update.",
     storeUpdate: "Check Store updates",
     storeUpdateText: "Opens the Microsoft Store on the updates page of your apps.",
     storeUpdateTip: "Opens the Microsoft Store so it checks for app updates.",
@@ -1010,6 +1019,7 @@ export default {
     blocked_by_policy: { title: "Blocked by a policy", text: "A rule from your organization or Windows forbids this installation. Contact the PC’s administrator." },
     hash_mismatch: { title: "File does not match", text: "The downloaded file does not match the expected fingerprint. For safety, nothing was installed. Often the publisher replaced its file: try again later or download it from their website." },
     no_applicable_installer: { title: "No suitable installer", text: "No installer matches this PC (architecture, language or install type). Install the update from the publisher’s website." },
+    technology_mismatch: { title: "Installed differently", text: "This program was installed with another kind of installer than the one winget offers (for instance its own setup instead of an MSI), and winget refuses to switch from one to the other. Update it with its own system or from the publisher’s website: MAJestic will no longer select it." },
     upgrade_not_applicable: { title: "Update not applicable", text: "The installer considers that the update does not apply to this installation. Try with the visible installer or from the publisher’s website." },
     downgrade_refused: { title: "Downgrade refused", text: "The installer refuses to install an older version. Uninstall the program first, then install the version you want." },
     already_installed: { title: "Already installed", text: "This version was already installed: nothing to do." },
@@ -1022,6 +1032,11 @@ export default {
     unknown: { title: "Unknown error", text: "The installation failed for an unidentified reason. Try again with the installer visible, or check the logs." },
   },
 
+  selfUpdate: {
+    opened: "{app} opens on its “About” page: the update starts by itself.",
+    elevated: "MAJestic runs as administrator and does not open {app} with these rights: open its “About” page yourself (menu › Help › About).",
+    failed: "{app} could not be opened: {error}",
+  },
   inventory: {
     group: "List of your programs",
     info: "The file only holds the name, identifier and version of your programs, and the website of those no package manager knows. It stays where you save it: MAJestic sends it nowhere. On another PC, “Import” installs the missing ones.",

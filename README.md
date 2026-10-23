@@ -61,6 +61,10 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
 - **Changer de PC** : exportez la liste de vos logiciels dans un fichier (Paramètres ›
   Liste de vos logiciels) ; sur le nouveau PC, importez-la : MAJestic installe ceux
   qui manquent et donne le lien des autres. Le fichier reste chez vous.
+- **Mises à jour impossibles par winget** : un logiciel installé autrement que par
+  sa fiche winget (Microsoft Edge, installé par Windows avec son propre programme)
+  n'est plus coché ; MAJestic explique pourquoi et propose la bonne voie, par exemple
+  « Mettre à jour dans Microsoft Edge ».
 - **Mises à jour qui échouent toujours** : après 3 échecs sur la même version,
   MAJestic ne la coche plus d'office et propose de l'ignorer ; la version suivante
   sera proposée normalement.

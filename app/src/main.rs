@@ -80,6 +80,7 @@ fn main() {
             commands::clean_downloads,
             commands::export_inventory,
             commands::reveal_export,
+            commands::open_self_update,
             commands::import_inventory,
             commands::set_schedule,
             appupdate::check_app_update,

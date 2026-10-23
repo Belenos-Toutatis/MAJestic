@@ -477,6 +477,11 @@ export default {
       title: "Géré par deux gestionnaires",
       text: "Ce logiciel semble aussi installé ou suivi par {other}. Mettez-le à jour avec un seul gestionnaire pour éviter les conflits.",
     },
+    technology_mismatch: {
+      label: "Installé autrement",
+      title: "winget ne peut pas mettre à jour ce logiciel",
+      text: "Il a été installé avec un autre type d’installateur que celui de sa fiche winget (par exemple son propre programme d’installation au lieu d’un MSI) : winget refuserait de le mettre à jour, il n’est donc pas coché. Mettez-le à jour par son propre système (voir Actions) ou depuis le site de l’éditeur.",
+    },
     repeated_failures: {
       label: "Échoue sans cesse",
       title: "Cette version a déjà échoué {count} fois",
@@ -664,6 +669,10 @@ export default {
     latestElsewhereText: "Trouvée dans un catalogue public. Téléchargez-la sur le site de l’éditeur pour l’installer.",
     managedElsewhere: "Mis à jour par {by}",
     managedElsewhereText: "{by} s’occupe des mises à jour de ce programme : rien à faire ici.",
+    selfUpdate: "Mettre à jour dans {app}",
+    selfUpdateText: "{app} se met à jour tout seul : sa page « À propos » vérifie et installe la nouvelle version tout de suite, puis propose de le redémarrer.",
+    selfUpdateBtn: "Ouvrir {app}",
+    selfUpdateTip: "Ouvre la page « À propos » de {app}, qui lance sa mise à jour.",
     storeUpdate: "Vérifier les mises à jour du Store",
     storeUpdateText: "Ouvre le Microsoft Store sur la page des mises à jour de vos applications.",
     storeUpdateTip: "Ouvre le Microsoft Store pour qu’il recherche les mises à jour de ses applications.",
@@ -1010,6 +1019,7 @@ export default {
     blocked_by_policy: { title: "Bloqué par une stratégie", text: "Une règle de votre organisation ou de Windows interdit cette installation. Contactez l’administrateur du PC." },
     hash_mismatch: { title: "Fichier non conforme", text: "Le fichier téléchargé ne correspond pas à l’empreinte attendue. Par sécurité, rien n’a été installé. Souvent, l’éditeur a remplacé son fichier : réessayez plus tard ou téléchargez-le sur son site." },
     no_applicable_installer: { title: "Aucun installateur adapté", text: "Aucun installateur ne correspond à ce PC (architecture, langue ou type d’installation). Installez la mise à jour depuis le site de l’éditeur." },
+    technology_mismatch: { title: "Installé autrement", text: "Ce logiciel a été installé avec un autre type d’installateur que celui que propose winget (par exemple son propre programme d’installation au lieu d’un MSI), et winget refuse de passer de l’un à l’autre. Mettez-le à jour par son propre système ou depuis le site de l’éditeur : MAJestic ne le cochera plus." },
     upgrade_not_applicable: { title: "Mise à jour non applicable", text: "L’installateur estime que la mise à jour ne s’applique pas à cette installation. Essayez avec l’installateur visible ou depuis le site de l’éditeur." },
     downgrade_refused: { title: "Retour en arrière refusé", text: "L’installateur refuse d’installer une version plus ancienne. Désinstallez d’abord le logiciel, puis installez la version voulue." },
     already_installed: { title: "Déjà installé", text: "Cette version était déjà installée : rien à faire." },
@@ -1022,6 +1032,11 @@ export default {
     unknown: { title: "Erreur inconnue", text: "L’installation a échoué pour une raison non identifiée. Réessayez avec l’installateur visible, ou consultez les journaux." },
   },
 
+  selfUpdate: {
+    opened: "{app} s’ouvre sur sa page « À propos » : la mise à jour démarre toute seule.",
+    elevated: "MAJestic tourne en administrateur et n’ouvre pas {app} avec ces droits : ouvrez vous-même sa page « À propos » (menu › Aide › À propos).",
+    failed: "{app} n’a pas pu être ouvert : {error}",
+  },
   inventory: {
     group: "Liste de vos logiciels",
     info: "Le fichier contient seulement le nom, l’identifiant et la version de vos logiciels, et le lien des sites de ceux qu’aucun gestionnaire ne connaît. Il reste là où vous l’enregistrez : MAJestic ne l’envoie nulle part. Sur un autre PC, « Importer » installe ceux qui manquent.",

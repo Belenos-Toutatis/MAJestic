@@ -152,6 +152,11 @@ pub enum Reason {
     /// (at least `history::FAILURE_LIMIT`): no longer preselected, and
     /// ignoring the version is suggested.
     RepeatedFailures { count: u32 },
+    /// winget will refuse this update: the program was installed with
+    /// another kind of installer than the manifest's (Microsoft Edge,
+    /// installed by its own setup.exe; the manifest has only the MSI).
+    /// Predicted from the manifest, or remembered from a failed attempt.
+    TechnologyMismatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -217,6 +222,9 @@ pub enum Alternative {
     ManagedElsewhere { by: String },
     /// Ask the Microsoft Store to look for app updates.
     StoreUpdate,
+    /// The program updates itself from one of its pages (browsers):
+    /// `open_self_update` opens it.
+    SelfUpdate { app: String },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -554,6 +562,10 @@ pub enum FailureKind {
     HashMismatch,
     NoApplicableInstaller,
     UpgradeNotApplicable,
+    /// winget will not switch installation technologies: the program was
+    /// installed by an MSI and the manifest only has classic installers, or
+    /// the other way round (Microsoft Edge, installed by its own setup.exe).
+    TechnologyMismatch,
     DowngradeRefused,
     AlreadyInstalled,
     MissingDependency,

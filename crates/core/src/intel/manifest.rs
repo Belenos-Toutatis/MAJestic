@@ -80,6 +80,54 @@ pub struct InstallerInfo {
     /// `InstallerLocale` (`en-US`…), the root-level one when the installer
     /// entry has none.
     pub locale: Option<String>,
+    /// `NestedInstallerType` of a `zip` installer.
+    pub nested_type: Option<String>,
+    /// `InstallerType` of its `AppsAndFeaturesEntries` (the installations it
+    /// can upgrade, besides its own type).
+    pub arp_types: Vec<String>,
+}
+
+/// winget's installer families (`GetCompatibilitySet`): a program installed
+/// by one family can only be upgraded by the same family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Technology {
+    /// `exe`, `inno`, `nullsoft`, `burn`: what winget assumes for every
+    /// registry entry without `WindowsInstaller`.
+    Exe,
+    /// `msi`, `wix`.
+    Msi,
+}
+
+fn technology(installer_type: &str) -> Option<Technology> {
+    match installer_type.to_ascii_lowercase().as_str() {
+        "exe" | "inno" | "nullsoft" | "burn" => Some(Technology::Exe),
+        "msi" | "wix" => Some(Technology::Msi),
+        _ => None,
+    }
+}
+
+impl InstallerInfo {
+    /// The type winget compares: the nested one for a `zip`.
+    pub fn effective_type(&self) -> Option<&str> {
+        match self.installer_type.as_deref() {
+            Some(t) if t.eq_ignore_ascii_case("zip") => self.nested_type.as_deref(),
+            other => other,
+        }
+    }
+}
+
+/// `true` when winget will refuse every installer of the manifest for a
+/// program installed by `installed` (`UPDATE_INSTALL_TECHNOLOGY_MISMATCH`):
+/// each installer, and each of its `AppsAndFeaturesEntries`, belongs to the
+/// other family. Cautious: any installer of another kind (MSIX, portable,
+/// unknown) or no installer at all means "cannot tell" (`false`).
+pub fn technology_mismatch(installers: &[InstallerInfo], installed: Technology) -> bool {
+    !installers.is_empty()
+        && installers.iter().all(|i| {
+            let types = i.effective_type().into_iter().chain(i.arp_types.iter().map(String::as_str));
+            let families: Vec<Option<Technology>> = types.map(technology).collect();
+            !families.is_empty() && families.iter().all(|f| matches!(f, Some(t) if *t != installed))
+        })
 }
 
 /// Installers of `id` at `version` (`<id>.installer.yaml`), cached like
@@ -281,6 +329,13 @@ fn lenient_strings<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Str
     })
 }
 
+/// [`lenient_seq`] that tells an absent field (`None`) from an empty list.
+fn lenient_seq_opt<'de, D: Deserializer<'de>, T: DeserializeOwned>(
+    deserializer: D,
+) -> Result<Option<Vec<T>>, D::Error> {
+    lenient_seq(deserializer).map(Some)
+}
+
 /// A sequence of structs, skipping malformed elements.
 fn lenient_seq<'de, D: Deserializer<'de>, T: DeserializeOwned>(deserializer: D) -> Result<Vec<T>, D::Error> {
     Ok(match serde_yaml_ng::Value::deserialize(deserializer)? {
@@ -386,8 +441,19 @@ struct InstallerManifest {
     scope: Option<String>,
     #[serde(deserialize_with = "lenient_string")]
     installer_locale: Option<String>,
+    #[serde(deserialize_with = "lenient_string")]
+    nested_installer_type: Option<String>,
+    #[serde(deserialize_with = "lenient_seq")]
+    apps_and_features_entries: Vec<ArpEntry>,
     #[serde(deserialize_with = "lenient_seq")]
     installers: Vec<InstallerEntry>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, rename_all = "PascalCase")]
+struct ArpEntry {
+    #[serde(deserialize_with = "lenient_string")]
+    installer_type: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -403,6 +469,11 @@ struct InstallerEntry {
     installer_url: Option<String>,
     #[serde(deserialize_with = "lenient_string")]
     installer_locale: Option<String>,
+    #[serde(deserialize_with = "lenient_string")]
+    nested_installer_type: Option<String>,
+    /// `None` when absent: the root-level entries apply.
+    #[serde(deserialize_with = "lenient_seq_opt")]
+    apps_and_features_entries: Option<Vec<ArpEntry>>,
 }
 
 impl InstallerManifest {
@@ -411,6 +482,10 @@ impl InstallerManifest {
         let root_type = lower(self.installer_type);
         let root_scope = lower(self.scope);
         let root_locale = self.installer_locale;
+        let root_nested = lower(self.nested_installer_type);
+        let arp_types =
+            |entries: &[ArpEntry]| entries.iter().filter_map(|e| lower(e.installer_type.clone())).collect::<Vec<_>>();
+        let root_arp = arp_types(&self.apps_and_features_entries);
         self.installers
             .into_iter()
             .filter_map(|entry| {
@@ -421,6 +496,12 @@ impl InstallerManifest {
                     architecture: lower(entry.architecture),
                     scope: lower(entry.scope).or_else(|| root_scope.clone()),
                     locale: entry.installer_locale.or_else(|| root_locale.clone()),
+                    nested_type: lower(entry.nested_installer_type).or_else(|| root_nested.clone()),
+                    arp_types: entry
+                        .apps_and_features_entries
+                        .as_deref()
+                        .map(arp_types)
+                        .unwrap_or_else(|| root_arp.clone()),
                 })
             })
             .collect()
@@ -559,6 +640,8 @@ mod tests {
             architecture: arch.map(str::to_string),
             scope: scope.map(str::to_string),
             locale: None,
+            nested_type: None,
+            arp_types: Vec::new(),
         }
     }
 
@@ -656,6 +739,59 @@ ManifestVersion: 1.6.0
         assert_eq!(installers[1].installer_type.as_deref(), Some("msi"));
         assert_eq!(installers[2].scope.as_deref(), Some("user"));
         assert_eq!(installers[3].architecture.as_deref(), Some("arm64"));
+    }
+
+    #[test]
+    fn installation_technologies() {
+        // Microsoft.Edge 156: enterprise MSI only, Windows installs Edge with setup.exe.
+        let edge = r#"InstallerType: msi
+Scope: machine
+AppsAndFeaturesEntries:
+- UpgradeCode: '{883C2625-37F7-357F-A0F4-DFAF391B2B9C}'
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://download.microsoft.com/MicrosoftEdgeEnterpriseX64.msi
+  - Architecture: x86
+    InstallerUrl: https://download.microsoft.com/MicrosoftEdgeEnterpriseX86.msi
+"#;
+        let installers = parse_yaml::<InstallerManifest>(edge).unwrap().into_installers();
+        assert!(installers[0].arp_types.is_empty());
+        assert!(technology_mismatch(&installers, Technology::Exe));
+        assert!(!technology_mismatch(&installers, Technology::Msi));
+
+        // An AppsAndFeaturesEntries type lets the MSI upgrade an exe install.
+        let declared = edge.replace("- UpgradeCode: '{883C2625-37F7-357F-A0F4-DFAF391B2B9C}'", "- InstallerType: exe");
+        let installers = parse_yaml::<InstallerManifest>(&declared).unwrap().into_installers();
+        assert_eq!(installers[1].arp_types, ["exe"]);
+        assert!(!technology_mismatch(&installers, Technology::Exe));
+
+        // One compatible installer is enough; inno and exe are one family.
+        let mixed = r#"Installers:
+- InstallerType: msi
+  InstallerUrl: https://example.com/a.msi
+- InstallerType: inno
+  InstallerUrl: https://example.com/a.exe
+"#;
+        let installers = parse_yaml::<InstallerManifest>(mixed).unwrap().into_installers();
+        assert!(!technology_mismatch(&installers, Technology::Exe));
+        assert!(!technology_mismatch(&installers, Technology::Msi));
+
+        // zip: its nested type counts; portable, msix or unknown: cannot tell.
+        let zip = r#"InstallerType: zip
+NestedInstallerType: wix
+Installers:
+- InstallerUrl: https://example.com/a.zip
+"#;
+        let installers = parse_yaml::<InstallerManifest>(zip).unwrap().into_installers();
+        assert_eq!(installers[0].effective_type(), Some("wix"));
+        assert!(technology_mismatch(&installers, Technology::Exe));
+        for other in ["portable", "msix", "appx"] {
+            let one = InstallerInfo { installer_type: Some(other.into()), ..inst(None, None, "u") };
+            assert!(!technology_mismatch(&[one], Technology::Exe), "{other}");
+        }
+        let unknown = InstallerInfo { installer_type: None, ..inst(None, None, "u") };
+        assert!(!technology_mismatch(&[unknown], Technology::Msi));
+        assert!(!technology_mismatch(&[], Technology::Msi));
     }
 
     #[test]

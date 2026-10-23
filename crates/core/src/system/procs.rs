@@ -205,6 +205,31 @@ pub fn launch_unelevated(exe: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Starts `exe arg` detached. Refused when MAJestic runs elevated: the
+/// program would get administrator rights (the shell route of
+/// [`launch_unelevated`] cannot pass an argument).
+pub fn launch_with_arg(exe: &Path, arg: &str) -> anyhow::Result<()> {
+    if !exe.is_file() {
+        anyhow::bail!("cannot launch {}: file not found", exe.display());
+    }
+    if elevation::is_elevated() {
+        anyhow::bail!("elevated");
+    }
+    let mut command = Command::new(exe);
+    if let Some(dir) = exe.parent().filter(|d| !d.as_os_str().is_empty()) {
+        command.current_dir(dir);
+    }
+    command
+        .arg(arg)
+        .creation_flags(DETACHED_PROCESS.0 | CREATE_NEW_PROCESS_GROUP.0)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| anyhow::anyhow!("cannot launch {}: {e}", exe.display()))?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

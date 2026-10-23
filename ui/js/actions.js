@@ -107,6 +107,13 @@ function onUpdatesDone(payload) {
       replaceItem({ ...item, assessment: { ...item.assessment, preselect: false, reasons: [...reasons, { type: 'repeated_failures', count: r.failedAttempts }] } });
       state.selection.delete(r.key);
     }
+    // winget will never update it this way (as the next scan will remember).
+    const current = itemByKey(r.key);
+    if (current && r.state?.type === 'failed' && r.state.kind === 'technology_mismatch') {
+      const reasons = (current.assessment?.reasons || []).filter((x) => x.type !== 'technology_mismatch');
+      replaceItem({ ...current, assessment: { ...current.assessment, preselect: false, reasons: [...reasons, { type: 'technology_mismatch' }] } });
+      state.selection.delete(r.key);
+    }
   }
   run.done = {
     rebootRequired: !!payload?.rebootRequired,
@@ -215,6 +222,18 @@ export async function openUrl(url) {
     toast(t('links.opened'), { duration: 2200 });
   } catch (err) {
     toast(t('links.openFailed', { error: errorText(err) }), { tone: 'danger' });
+  }
+}
+
+/** Opens the page where a browser updates itself (`self_update` alternative). */
+export async function openSelfUpdate(item) {
+  const app = (item?.alternatives || []).find((a) => a?.type === 'self_update')?.app || item?.name || '?';
+  try {
+    await invoke('open_self_update', { key: item.key });
+    toast(t('selfUpdate.opened', { app }), { tone: 'success', duration: 7000 });
+  } catch (e) {
+    const text = errorText(e);
+    toast(text === 'elevated' ? t('selfUpdate.elevated', { app }) : t('selfUpdate.failed', { app, error: text }), { tone: 'danger', duration: 9000 });
   }
 }
 

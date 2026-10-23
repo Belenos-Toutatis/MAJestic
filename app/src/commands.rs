@@ -226,6 +226,18 @@ pub async fn export_inventory(
     }))
 }
 
+/// Opens the page where a self-updating program (a browser) updates itself.
+/// Error `elevated` when MAJestic runs as administrator.
+#[tauri::command]
+pub async fn open_self_update(key: String, state: State<'_, AppState>) -> Result<(), String> {
+    let item = scanned_items(&state)?.into_iter().find(|i| i.key == key).ok_or("unknown program")?;
+    blocking(move || {
+        let updater = majestic_core::self_updaters::for_id(&item.id).ok_or("no update page")?;
+        majestic_core::self_updaters::open(updater, item.install_location.as_deref()).map_err(|e| format!("{e:#}"))
+    })
+    .await?
+}
+
 /// Shows the last exported list in Explorer.
 #[tauri::command]
 pub fn reveal_export(state: State<'_, AppState>) -> Result<(), String> {

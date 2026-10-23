@@ -339,6 +339,9 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
         }
         set_installed(item, &row.version, program.as_ref());
         item.alternatives.push(Alternative::InstallVersion);
+        if let Some(u) = crate::self_updaters::for_id(&row.id) {
+            item.alternatives.push(Alternative::SelfUpdate { app: u.app.to_string() });
+        }
         if source == Source::MsStore {
             item.category = Category::StoreApp;
             item.alternatives.push(Alternative::StoreUpdate);
@@ -491,7 +494,7 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
     }
 
     if settings.online_intel && env.online {
-        enrich_from_manifests(&mut b.items, &cache, progress);
+        enrich_from_manifests(&mut b.items, &b.programs, &cache, progress);
     } else {
         skip(progress, ScanStep::ReleaseNotes);
     }
@@ -500,7 +503,9 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
     // Every item gets one: up-to-date and unmanaged programs keep informative
     // reasons (version read from the file, known exploited flaws...).
     let today = today();
-    let failures = history::failure_counts(&history::load());
+    let past = history::load();
+    let failures = history::failure_counts(&past);
+    let mismatches = history::technology_mismatches(&past);
     for item in b.items.iter_mut() {
         item.ignored = settings.is_ignored(&item.key, item.available_version.as_deref());
         if let Some(&count) = item
@@ -510,6 +515,13 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
             .filter(|&&c| c >= history::FAILURE_LIMIT)
         {
             item.assessment.reasons.push(Reason::RepeatedFailures { count });
+        }
+        // Remembered from a failed attempt when the manifest could not tell.
+        if item.available_version.is_some()
+            && mismatches.contains(&item.key)
+            && !item.assessment.reasons.contains(&Reason::TechnologyMismatch)
+        {
+            item.assessment.reasons.push(Reason::TechnologyMismatch);
         }
         let kev = kev_reason(kev.as_ref(), item, &today);
         let notes = item.release_notes.clone();
@@ -528,7 +540,9 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
             .assessment
             .reasons
             .iter()
-            .any(|r| matches!(r, Reason::StaleInstaller { .. } | Reason::RepeatedFailures { .. }));
+            .any(|r| {
+                matches!(r, Reason::StaleInstaller { .. } | Reason::RepeatedFailures { .. } | Reason::TechnologyMismatch)
+            });
         if item.ignored || item.explicit_only || stale {
             item.assessment.preselect = false;
         }
@@ -587,7 +601,12 @@ pub fn compute_stats(items: &[UpdateItem], stats: &mut ScanStats) {
 
 /// Release notes, links, installer type and size from winget-pkgs manifests,
 /// for winget updates. Parallel, bounded.
-fn enrich_from_manifests(items: &mut [UpdateItem], cache: &std::path::Path, progress: Progress) {
+fn enrich_from_manifests(
+    items: &mut [UpdateItem],
+    programs: &HashMap<String, InstalledProgram>,
+    cache: &std::path::Path,
+    progress: Progress,
+) {
     let targets: Vec<usize> = items
         .iter()
         .enumerate()
@@ -605,10 +624,32 @@ fn enrich_from_manifests(items: &mut [UpdateItem], cache: &std::path::Path, prog
         installer_type: Option<String>,
         url: Option<String>,
         size: Option<u64>,
+        /// winget will refuse every installer (see `Reason::TechnologyMismatch`).
+        mismatch: bool,
     }
-    let inputs: Vec<(usize, String, String, Option<Scope>)> = targets
+    struct Input {
+        n: usize,
+        id: String,
+        ver: String,
+        scope: Option<Scope>,
+        /// How the program was installed, as winget sees it.
+        installed: Option<intel::manifest::Technology>,
+    }
+    let inputs: Vec<Input> = targets
         .iter()
-        .map(|&n| (n, items[n].id.clone(), items[n].available_version.clone().unwrap_or_default(), items[n].scope))
+        .map(|&n| Input {
+            n,
+            id: items[n].id.clone(),
+            ver: items[n].available_version.clone().unwrap_or_default(),
+            scope: items[n].scope,
+            installed: programs.get(&items[n].key).map(|p| {
+                if p.windows_installer {
+                    intel::manifest::Technology::Msi
+                } else {
+                    intel::manifest::Technology::Exe
+                }
+            }),
+        })
         .collect();
     let results: Mutex<Vec<(usize, Found)>> = Mutex::new(Vec::new());
     let next = AtomicUsize::new(0);
@@ -619,17 +660,21 @@ fn enrich_from_manifests(items: &mut [UpdateItem], cache: &std::path::Path, prog
         for _ in 0..INTEL_THREADS.min(total) {
             s.spawn(|| loop {
                 let k = next.fetch_add(1, Ordering::SeqCst);
-                let Some((n, id, ver, scope)) = inputs.get(k) else { break };
+                let Some(Input { n, id, ver, scope, installed }) = inputs.get(k) else { break };
                 let meta = intel::manifest::fetch(id, ver, cache)
                     .map_err(|e| log::debug!("manifest {id} {ver}: {e:#}"))
                     .ok();
-                let installer = intel::manifest::fetch_installers(id, ver, cache)
+                let list = intel::manifest::fetch_installers(id, ver, cache)
                     .map_err(|e| log::debug!("installers {id} {ver}: {e:#}"))
-                    .ok()
-                    .and_then(|list| intel::manifest::pick_installer(&list, *scope).cloned());
+                    .ok();
+                let mismatch = match (&list, installed) {
+                    (Some(list), Some(t)) => intel::manifest::technology_mismatch(list, *t),
+                    _ => false,
+                };
+                let installer = list.and_then(|list| intel::manifest::pick_installer(&list, *scope).cloned());
                 let size = installer.as_ref().and_then(|i| intel::http::content_length(&i.url));
                 let (url, installer_type) = installer.map(|i| (Some(i.url), i.installer_type)).unwrap_or_default();
-                let found = Found { meta, installer_type, url, size };
+                let found = Found { meta, installer_type, url, size, mismatch };
                 if let Ok(mut r) = results.lock() {
                     r.push((*n, found));
                 }
@@ -656,6 +701,10 @@ fn enrich_from_manifests(items: &mut [UpdateItem], cache: &std::path::Path, prog
         }
         item.installer_type = found.installer_type;
         item.download_size = found.size;
+        if found.mismatch {
+            log::info!("{}: installed with another kind of installer than the manifest's", item.key);
+            item.assessment.reasons.push(Reason::TechnologyMismatch);
+        }
         if let (Some(url), Some(installed), Some(available), VersionCertainty::Exact) =
             (found.url.as_deref(), item.installed_version.as_deref(), item.available_version.as_deref(), item.version_certainty)
         {

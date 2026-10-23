@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 
-use crate::model::{HistoryEntry, JobAction};
+use crate::model::{FailureKind, HistoryEntry, JobAction};
 use crate::paths;
 
 /// Appends an entry. Errors are logged, never fatal.
@@ -61,6 +61,22 @@ pub fn failure_counts(entries: &[HistoryEntry]) -> HashMap<(String, String), u32
         }
     }
     counts
+}
+
+/// Packages whose most recent attempt failed because winget will not switch
+/// installation technologies. `entries`: most recent first.
+pub fn technology_mismatches(entries: &[HistoryEntry]) -> HashSet<String> {
+    let mut found = HashSet::new();
+    let mut seen: HashSet<&str> = HashSet::new();
+    for e in entries {
+        if !seen.insert(e.key.as_str()) {
+            continue;
+        }
+        if e.result == "failed" && e.failure == Some(FailureKind::TechnologyMismatch) {
+            found.insert(e.key.clone());
+        }
+    }
+    found
 }
 
 /// Failed attempts at installing `version` of `key`, from the history file.
@@ -127,5 +143,23 @@ mod tests {
         assert_eq!(get("winget:B", "5.0"), 1);
         assert_eq!(get("winget:C", ""), 0);
         assert_eq!(get("winget:C", "3.0"), 0);
+    }
+
+    #[test]
+    fn remembered_technology_mismatches() {
+        let failed = |key: &str, kind| HistoryEntry { failure: Some(kind), ..entry(key, JobAction::Upgrade, "2.0", "failed") };
+        // Most recent first.
+        let entries = vec![
+            failed("winget:Microsoft.Edge", FailureKind::TechnologyMismatch),
+            failed("winget:A", FailureKind::DownloadFailed),
+            failed("winget:A", FailureKind::TechnologyMismatch),
+            entry("winget:B", JobAction::Upgrade, "2.0", "succeeded"),
+            failed("winget:B", FailureKind::TechnologyMismatch),
+        ];
+        let found = technology_mismatches(&entries);
+        assert!(found.contains("winget:Microsoft.Edge"));
+        // Only the most recent attempt counts, and a success clears it.
+        assert!(!found.contains("winget:A"));
+        assert!(!found.contains("winget:B"));
     }
 }

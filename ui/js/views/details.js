@@ -12,6 +12,7 @@ import {
 } from '../model.js';
 import {
   startJobs, ignoreItem, unignore, openUrl, openStoreUpdates, webSearchUrl, uninstallItem, runUninstaller, openInstalledApps,
+  openSelfUpdate,
 } from '../actions.js';
 import { avatar } from '../components/avatar.js';
 import { button, iconButton, badge, infoDot, spinner } from '../components/widgets.js';
@@ -370,6 +371,17 @@ function actionsFor(item, kind) {
       case 'managed_elsewhere':
         out.push(actionCard({ ic: 'autoupdate', title: t('alternatives.managedElsewhere', { by: alt.by || '?' }), text: t('alternatives.managedElsewhereText', { by: alt.by || '?' }) }));
         break;
+      case 'self_update': {
+        const app = alt.app || item.name;
+        const card = actionCard({
+          ic: 'autoupdate', tone: 'manual', title: t('alternatives.selfUpdate', { app }), text: t('alternatives.selfUpdateText', { app }),
+          control: button({ label: t('alternatives.selfUpdateBtn', { app }), icon: 'external', size: 'small', tip: [t('alternatives.selfUpdate', { app }), t('alternatives.selfUpdateTip', { app })], onClick: () => openSelfUpdate(item) }),
+        });
+        // When winget cannot update it, this is the way: first.
+        if (reasonsOf(item).some((r) => r.type === 'technology_mismatch')) out.unshift(card);
+        else out.push(card);
+        break;
+      }
       case 'store_update':
         out.push(actionCard({
           ic: 'store', title: t('alternatives.storeUpdate'), text: t('alternatives.storeUpdateText'),
