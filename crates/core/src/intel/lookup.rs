@@ -2,8 +2,11 @@
 //!
 //! OWNER: intel agent.
 //!
-//! Each request carries one program name (Chocolatey search) or one
-//! repository (GitHub), never the list of installed software.
+//! Each request carries one program name (Chocolatey search, one Scoop
+//! manifest) or one repository (GitHub), never the list of installed
+//! software. Scoop's list of manifest names carries no name at all.
+
+use std::path::PathBuf;
 
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{LazyLock, Mutex};
@@ -14,7 +17,7 @@ use quick_xml::Reader;
 use regex::Regex;
 use serde::Deserialize;
 
-use super::http;
+use super::{http, scoop_catalog};
 use crate::model::{Alternative, Links};
 use crate::version::{self, Version};
 
@@ -61,6 +64,7 @@ impl Breaker {
 
 static GITHUB: Breaker = Breaker::new();
 static CHOCOLATEY: Breaker = Breaker::new();
+static SCOOP: Breaker = Breaker::new();
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LookupInput {
@@ -69,16 +73,19 @@ pub struct LookupInput {
     pub version: Option<String>,
     /// Registry URLs (URLInfoAbout, URLUpdateInfo, HelpLink).
     pub urls: Vec<String>,
+    /// Where Scoop's catalogs are cached (empty: Scoop not used).
+    pub cache_dir: PathBuf,
 }
 
-/// Looks for a more recent version in public catalogs, most reliable first:
-/// GitHub releases when one of the URLs is a github.com repository, then the
-/// Chocolatey community catalog (search by name, accepting only confident
-/// title matches). Returns `Alternative::LatestElsewhere` only when the found
-/// version is strictly newer than `input.version`.
+/// Looks for a more recent version in public catalogs: GitHub releases when
+/// one of the URLs is a github.com repository, else Scoop's catalogs, else
+/// the Chocolatey community catalog (confident name matches only; it may
+/// lag: Chocolatey stopped at Prince 10).
+/// Returns `Alternative::LatestElsewhere` only when the found version is
+/// strictly newer than `input.version`.
 ///
 /// When the GitHub repository has a usable latest release, its answer is
-/// final (an up-to-date program is not looked up on Chocolatey).
+/// final (an up-to-date program is not looked up elsewhere).
 pub fn latest_elsewhere(input: &LookupInput) -> Option<Alternative> {
     let installed = input.version.as_deref()?.trim();
     Version::parse(installed)?;
@@ -110,14 +117,36 @@ pub fn latest_elsewhere(input: &LookupInput) -> Option<Alternative> {
         }
     }
 
-    let wanted = normalize_title(&input.name, input.publisher.as_deref());
-    if wanted.chars().filter(|c| c.is_alphanumeric()).count() < 3 {
+    let candidates = name_candidates(&input.name, input.publisher.as_deref());
+    if candidates.is_empty() {
         return None;
     }
+    let newer = |v: &str| same_scheme(v, installed) && version::is_newer(v, installed);
+    // Scoop copies the publisher's own version string: its answer is final
+    // (Chocolatey may lag, or number differently: ImageMagick 7.1.2-25 is
+    // its 7.1.2.2500).
+    if let Some(m) = scoop_manifest(&input.name, input.publisher.as_deref(), &input.urls, &input.cache_dir) {
+        return newer(&m.version).then(|| Alternative::LatestElsewhere {
+            url: m.page().map(str::to_string),
+            version: m.version,
+            origin: "scoop".to_string(),
+        });
+    }
+    let (latest, id) = chocolatey_latest(&input.name, input.publisher.as_deref(), &candidates)?;
+    newer(&latest).then(|| Alternative::LatestElsewhere {
+        version: latest,
+        origin: "chocolatey".to_string(),
+        url: Some(format!("{CHOCOLATEY_PACKAGE_PAGE}{}", encode(&id))),
+    })
+}
+
+/// The newest Chocolatey package confidently named like the program:
+/// `(version, id)`.
+fn chocolatey_latest(name: &str, publisher: Option<&str>, candidates: &[String]) -> Option<(String, String)> {
     if CHOCOLATEY.is_open() {
         return None;
     }
-    let packages = match chocolatey_search(&search_term(&input.name)) {
+    let packages = match chocolatey_search(&search_term(name)) {
         Ok(packages) => {
             CHOCOLATEY.success();
             packages
@@ -128,12 +157,73 @@ pub fn latest_elsewhere(input: &LookupInput) -> Option<Alternative> {
             return None;
         }
     };
-    let (latest, id) = pick_chocolatey(&packages, &wanted, input.publisher.as_deref())?;
-    (same_scheme(&latest, installed) && version::is_newer(&latest, installed)).then(|| Alternative::LatestElsewhere {
-        version: latest,
-        origin: "chocolatey".to_string(),
-        url: Some(format!("{CHOCOLATEY_PACKAGE_PAGE}{}", encode(&id))),
-    })
+    candidates.iter().find_map(|wanted| pick_chocolatey(&packages, wanted, publisher))
+}
+
+/// The Scoop manifest of the program: a manifest named like it (`prince`,
+/// `imagemagick`) whose site matches the registry's links, when there are
+/// any. `None` without a cache folder.
+pub fn scoop_manifest(
+    name: &str,
+    publisher: Option<&str>,
+    urls: &[String],
+    cache_dir: &std::path::Path,
+) -> Option<scoop_catalog::Manifest> {
+    if SCOOP.is_open() || cache_dir.as_os_str().is_empty() {
+        return None;
+    }
+    let index = match scoop_catalog::index(cache_dir) {
+        Ok(index) => {
+            SCOOP.success();
+            index
+        }
+        Err(err) => {
+            match http::error_status(&err) {
+                Some(403 | 429) => SCOOP.open_for(Duration::from_secs(30 * 60)),
+                _ => SCOOP.failure(),
+            }
+            log::debug!("Scoop catalogs unavailable: {err:#}");
+            return None;
+        }
+    };
+    for candidate in name_candidates(name, publisher) {
+        for manifest_name in scoop_names(&candidate) {
+            let Some(bucket) = index.bucket_of(&manifest_name) else { continue };
+            match scoop_catalog::manifest(bucket, &manifest_name, cache_dir) {
+                Ok(m) if same_site(urls, &m) => return Some(m),
+                Ok(m) => log::debug!("Scoop {}/{}: another site than {urls:?}", m.bucket, m.name),
+                Err(err) => log::debug!("Scoop {bucket}/{manifest_name}: {err:#}"),
+            }
+        }
+    }
+    None
+}
+
+/// Manifest names a title may have: `visual studio code` →
+/// `visual-studio-code`, `visualstudiocode`.
+fn scoop_names(title: &str) -> Vec<String> {
+    let words: Vec<&str> = title.split_whitespace().collect();
+    let mut names = vec![words.join("-"), words.concat()];
+    names.dedup();
+    names.retain(|n| n.len() >= 3 && n.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '+')));
+    names
+}
+
+/// Registrable part of a URL's host: `https://www.imagemagick.org/x` →
+/// `imagemagick.org`.
+fn site(url: &str) -> Option<String> {
+    let rest = url.trim().split_once("://")?.1;
+    let host = rest.split(['/', '?', '#', ':']).next()?.to_ascii_lowercase();
+    let labels: Vec<&str> = host.split('.').filter(|l| !l.is_empty()).collect();
+    (labels.len() >= 2).then(|| labels[labels.len() - 2..].join("."))
+}
+
+/// The manifest's homepage or download page is on one of the registry's
+/// sites, or the registry gives no link to compare with.
+fn same_site(urls: &[String], m: &scoop_catalog::Manifest) -> bool {
+    let ours: Vec<String> = urls.iter().filter_map(|u| site(u)).collect();
+    ours.is_empty()
+        || [m.homepage.as_deref(), m.checkver_url.as_deref()].into_iter().flatten().filter_map(site).any(|s| ours.contains(&s))
 }
 
 /// A program whose registry entry does not lead to where it is published.
@@ -306,7 +396,7 @@ fn version_from_tag(tag: &str) -> Option<String> {
 
 /// Both versions use the same numbering scheme: calendar (`2024.10`) or
 /// date (`20241001`) versions are not comparable with semantic ones.
-fn same_scheme(a: &str, b: &str) -> bool {
+pub(crate) fn same_scheme(a: &str, b: &str) -> bool {
     let (Some(a), Some(b)) = (Version::parse(a), Version::parse(b)) else {
         return false;
     };
@@ -597,9 +687,46 @@ fn normalize_title(name: &str, publisher: Option<&str>) -> String {
     words.join(" ")
 }
 
-/// Search term sent to Chocolatey: the cleaned display name only.
-fn search_term(name: &str) -> String {
-    display_words(name).join(" ")
+/// Search term sent to Chocolatey (and to winget's local search): the
+/// cleaned core of the display name.
+pub(crate) fn search_term(name: &str) -> String {
+    display_words(&core_name(name)).join(" ")
+}
+
+/// The name without the trailing words that hold digits (versions, builds,
+/// dates): `ImageMagick 7.1.1-47 Q16-HDRI (64-bit)` → `ImageMagick`.
+fn core_name(name: &str) -> String {
+    let stripped = strip_parenthesized(name);
+    let mut tokens: Vec<&str> = stripped.split_whitespace().collect();
+    while tokens.len() > 1 && tokens.last().is_some_and(|t| t.chars().any(|c| c.is_ascii_digit())) {
+        tokens.pop();
+    }
+    tokens.join(" ")
+}
+
+/// Comparable titles of a program, most specific first: the whole display
+/// name, then its core (see [`core_name`]). At least 3 letters or digits.
+pub(crate) fn name_candidates(name: &str, publisher: Option<&str>) -> Vec<String> {
+    let mut out = vec![normalize_title(name, publisher), normalize_title(&core_name(name), publisher)];
+    out.dedup();
+    out.retain(|c| c.chars().filter(|c| c.is_alphanumeric()).count() >= 3);
+    out
+}
+
+/// Same publisher, company words aside (`ImageMagick Studio LLC` and
+/// `ImageMagick Studio`; `Mozilla` and `Mozilla Foundation`).
+pub(crate) fn same_publisher(a: &str, b: &str) -> bool {
+    let words = |s: &str| -> Vec<String> {
+        display_words(s).into_iter().filter(|w| !COMPANY_WORDS.contains(&w.as_str())).collect()
+    };
+    let (a, b) = (words(a), words(b));
+    !a.is_empty() && !b.is_empty() && (a.starts_with(&b) || b.starts_with(&a))
+}
+
+/// Comparable title of a catalog entry (`ImageMagick Q16-HDRI` →
+/// `imagemagick q16 hdri`), for [`crate::scan`]'s winget search by name.
+pub(crate) fn comparable(name: &str, publisher: Option<&str>) -> String {
+    normalize_title(name, publisher)
 }
 
 /// Removes `(...)` and `[...]` groups.
@@ -665,6 +792,41 @@ mod tests {
     }
 
     #[test]
+    fn name_recognition() {
+        let imagemagick = "ImageMagick 7.1.1-47 Q16-HDRI (64-bit) (2025-03-29)";
+        assert_eq!(core_name(imagemagick), "ImageMagick");
+        assert_eq!(name_candidates(imagemagick, None), ["imagemagick q16 hdri", "imagemagick"]);
+        assert_eq!(search_term(imagemagick), "imagemagick");
+        assert_eq!(name_candidates("Prince", Some("YesLogic Pty Ltd")), ["prince"]);
+        assert_eq!(core_name("Python 3.13.5 (64-bit)"), "Python");
+        assert_eq!(core_name("7-Zip 24.08 (x64)"), "7-Zip");
+        assert_eq!(core_name("Windows 11 Installation Assistant"), "Windows 11 Installation Assistant");
+        assert!(name_candidates("Go 1.23", None).is_empty(), "too short to trust");
+
+        assert_eq!(scoop_names("visual studio code"), ["visual-studio-code", "visualstudiocode"]);
+        assert_eq!(scoop_names("prince"), ["prince"]);
+        assert!(scoop_names("c#").is_empty());
+
+        assert_eq!(site("https://www.imagemagick.org/script/download.php").as_deref(), Some("imagemagick.org"));
+        assert_eq!(site("http://download.example.com:8080/x").as_deref(), Some("example.com"));
+        assert_eq!(site("not a url"), None);
+        let m = |homepage: &str| scoop_catalog::Manifest {
+            homepage: Some(homepage.into()),
+            checkver_url: Some("https://www.princexml.com/download/".into()),
+            ..Default::default()
+        };
+        let urls = |list: &[&str]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(same_site(&[], &m("https://www.princexml.com")));
+        assert!(same_site(&urls(&["http://www.imagemagick.org/"]), &m("https://imagemagick.org/")));
+        assert!(!same_site(&urls(&["https://other.example/"]), &m("https://imagemagick.org/")));
+
+        assert!(same_publisher("ImageMagick Studio LLC", "ImageMagick Studio"));
+        assert!(same_publisher("Mozilla", "Mozilla Foundation"));
+        assert!(!same_publisher("YesLogic Pty Ltd", "Contoso"));
+        assert!(!same_publisher("", "Contoso"));
+    }
+
+    #[test]
     fn known_programs() {
         let links = known_links("Euro-Office (Standalone) 9.3.5 (x64)").unwrap();
         assert_eq!(links.homepage.as_deref(), Some("https://github.com/Euro-Office/DesktopEditors"));
@@ -694,6 +856,7 @@ mod tests {
             publisher: Some("Ascensio System SIA".into()),
             version: Some("9.3.4.0".into()),
             urls: [links.homepage, links.download, links.support].into_iter().flatten().collect(),
+            cache_dir: PathBuf::new(),
         };
         match latest_elsewhere(&input) {
             Some(Alternative::LatestElsewhere { version, origin, url }) => {
@@ -896,6 +1059,7 @@ mod tests {
             publisher: publisher.map(str::to_string),
             version: Some(version.into()),
             urls: urls(url),
+            cache_dir: std::env::temp_dir().join("majestic-lookup-real"),
         };
         let cases = [
             input("KeePassXC", Some("KeePassXC Team"), "2.7.0", &["https://github.com/keepassxreboot/keepassxc"]),

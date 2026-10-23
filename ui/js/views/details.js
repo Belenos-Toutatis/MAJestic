@@ -185,6 +185,7 @@ function loadAbout(item) {
     source: item.source, id: item.id, name: item.name, publisher: item.publisher || null,
     versions: [item.availableVersion, item.installedVersion].filter(Boolean),
     lang: getLanguage(),
+    urls: [item.links?.homepage, item.links?.download, item.links?.support].filter(Boolean),
   };
   invoke('describe_item', { request })
     .then((about) => aboutCache.set(item.key, { about: about || null }))

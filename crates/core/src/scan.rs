@@ -717,6 +717,50 @@ fn enrich_from_manifests(
     report(progress, ScanStep::ReleaseNotes, StepState::Done, None, Some(1.0));
 }
 
+/// A winget package named like this unmanaged program and newer than it,
+/// from winget's local copy of its catalog (the search sends nothing). Case
+/// of ImageMagick, whose versioned registry name winget does not link to
+/// `ImageMagick.ImageMagick`. Several packages with that name: none (no
+/// guess). The manifest's publisher must match the registry's when both
+/// are known.
+fn winget_by_name(item: &UpdateItem, cache: &std::path::Path) -> Option<Alternative> {
+    let installed = item.installed_version.as_deref()?;
+    let publisher = item.publisher.as_deref();
+    let wanted = intel::lookup::comparable(&item.name, publisher);
+    let query = intel::lookup::search_term(&item.name);
+    if wanted.chars().filter(|c| c.is_alphanumeric()).count() < 3 || query.is_empty() {
+        return None;
+    }
+    let rows = winget::search(&query).map_err(|e| log::debug!("winget search {query:?}: {e:#}")).ok()?;
+    // Same name, newer, and the same publisher when the manifest says: the
+    // newest of them (ImageMagick Q16-HDRI exists twice in winget).
+    let row = rows
+        .iter()
+        .filter(|r| !r.id.is_empty() && intel::lookup::comparable(&r.name, publisher) == wanted)
+        .filter(|r| {
+            let v = r.version.trim();
+            !version::is_unknown(v) && intel::lookup::same_scheme(v, installed) && version::is_newer(v, installed)
+        })
+        .take(3)
+        .filter(|r| {
+            let theirs = intel::manifest::fetch(&r.id, r.version.trim(), cache).ok().and_then(|m| m.publisher);
+            let same = match (publisher, theirs.as_deref()) {
+                (Some(ours), Some(theirs)) => intel::lookup::same_publisher(ours, theirs),
+                _ => true,
+            };
+            if !same {
+                log::debug!("{}: winget {} has another publisher", item.name, r.id);
+            }
+            same
+        })
+        .max_by(|a, b| version::compare(a.version.trim(), b.version.trim()))?;
+    Some(Alternative::WingetCandidate {
+        id: row.id.clone(),
+        name: row.name.clone(),
+        version: Some(row.version.trim().to_string()),
+    })
+}
+
 /// Background phase: looks for newer versions of unmanaged applications and
 /// calls `on_item` with every item that changed (turned into `Manual`).
 pub fn lookup_unmanaged(
@@ -739,7 +783,9 @@ pub fn lookup_unmanaged(
         report(progress, ScanStep::Lookup, StepState::Done, None, Some(1.0));
         return;
     }
-    let kev = intel::kev::load(&paths::cache_dir(), Duration::from_secs(u64::MAX / 4), false).ok();
+    let cache = paths::cache_dir();
+    let kev = intel::kev::load(&cache, Duration::from_secs(u64::MAX / 4), false).ok();
+    let has_winget = winget::version().is_some();
     let today = today();
     let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
@@ -758,13 +804,29 @@ pub fn lookup_unmanaged(
                     publisher: item.publisher.clone(),
                     version: item.installed_version.clone(),
                     urls,
+                    cache_dir: cache.clone(),
                 };
-                if let Some(alt) = intel::lookup::latest_elsewhere(&input) {
+                // A winget package can install it in one click: first.
+                let found: Vec<Alternative> = [
+                    if has_winget { winget_by_name(item, &cache) } else { None },
+                    intel::lookup::latest_elsewhere(&input),
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
+                if !found.is_empty() {
                     let mut updated = (*item).clone();
-                    if let Alternative::LatestElsewhere { version, .. } = &alt {
-                        updated.available_version = Some(version.clone());
+                    updated.available_version = found
+                        .iter()
+                        .filter_map(|alt| match alt {
+                            Alternative::LatestElsewhere { version, .. } => Some(version.clone()),
+                            Alternative::WingetCandidate { version, .. } => version.clone(),
+                            _ => None,
+                        })
+                        .max_by(|a, b| version::compare(a, b));
+                    for alt in found.into_iter().rev() {
+                        updated.alternatives.insert(0, alt);
                     }
-                    updated.alternatives.insert(0, alt);
                     updated.kind = ItemKind::Manual;
                     let kev = kev_reason(kev.as_ref(), &updated, &today);
                     updated.assessment = intel::assess::assess(&updated, kev, None);

@@ -165,7 +165,7 @@ Pour vous conseiller, il consulte des sources publiques :
 | Service | Pourquoi | Ce que contient la requête |
 |---|---|---|
 | `www.cisa.gov` | Catalogue des failles activement exploitées (KEV) | Rien sur vos logiciels : le catalogue entier est téléchargé |
-| `raw.githubusercontent.com`, `api.github.com` | Manifestes winget (notes de version, installateur, descriptif) ; dernières versions publiées sur GitHub | L'identifiant d'**un seul** logiciel |
+| `raw.githubusercontent.com`, `api.github.com` | Manifestes winget (notes de version, installateur, descriptif) ; dernières versions publiées sur GitHub ; catalogues Scoop (Main, Extras) : la liste de leurs noms une fois par jour, puis la fiche d'un logiciel reconnu | L'identifiant d'**un seul** logiciel ; rien pour la liste des noms Scoop |
 | `community.chocolatey.org` | Catalogue Chocolatey, pour les logiciels qu'aucun gestionnaire ne suit (version, descriptif) | Le nom d'**un seul** logiciel |
 | Serveur de l'éditeur | Taille de l'installateur, pour estimer le temps restant (requête `HEAD`, sans téléchargement) | L'adresse officielle de l'installateur, lue dans le manifeste winget |
 | `api.github.com`, `github.com` | Savoir s'il existe une nouvelle version de MAJestic, et la télécharger si vous le demandez | Rien sur vos logiciels |
@@ -263,7 +263,7 @@ To advise you, it reads public sources:
 | Service | Why | What the request contains |
 |---|---|---|
 | `www.cisa.gov` | Catalog of actively exploited vulnerabilities (KEV) | Nothing about your software: the whole catalog is downloaded |
-| `raw.githubusercontent.com`, `api.github.com` | winget manifests (release notes, installer, description); latest releases published on GitHub | The identifier of **one** program |
+| `raw.githubusercontent.com`, `api.github.com` | winget manifests (release notes, installer, description); latest releases published on GitHub; Scoop catalogs (Main, Extras): their list of names once a day, then the manifest of a recognized program | The identifier of **one** program; nothing for Scoop's list of names |
 | `community.chocolatey.org` | Chocolatey catalog, for programs no package manager tracks (version, description) | The name of **one** program |
 | Publisher's server | Installer size, to estimate the time remaining (`HEAD` request, nothing is downloaded) | The official installer address, read from the winget manifest |
 | `api.github.com`, `github.com` | Whether a new version of MAJestic exists, and downloading it when you ask | Nothing about your software |

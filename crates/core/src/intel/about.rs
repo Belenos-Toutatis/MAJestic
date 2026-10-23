@@ -27,6 +27,8 @@ pub struct AboutRequest {
     pub versions: Vec<String>,
     /// Language of the interface (`fr`, `en`).
     pub lang: String,
+    /// The program's links, to check a catalog entry is about it.
+    pub urls: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -82,7 +84,18 @@ pub fn about(req: &AboutRequest, cache_dir: &std::path::Path, online: bool) -> O
         }
         Some(Source::Chocolatey) => from_chocolatey(lookup::chocolatey_about(Some(&req.id), &req.name, None)),
         Some(Source::Registry) | None => {
-            from_chocolatey(lookup::chocolatey_about(None, &req.name, req.publisher.as_deref()))
+            let scoop = lookup::scoop_manifest(&req.name, req.publisher.as_deref(), &req.urls, cache_dir)
+                .and_then(|m| {
+                    let page = m.page().map(str::to_string);
+                    m.description.map(|d| About {
+                        summary: Some(d),
+                        locale: "en-US".to_string(),
+                        origin: "scoop",
+                        url: page,
+                        ..About::default()
+                    })
+                });
+            scoop.or_else(|| from_chocolatey(lookup::chocolatey_about(None, &req.name, req.publisher.as_deref())))
         }
         _ => None,
     }

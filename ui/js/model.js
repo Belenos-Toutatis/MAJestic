@@ -20,7 +20,7 @@ export function normSource(source) {
 
 /** Display name of a catalog where a newer version was found. */
 export function originName(origin) {
-  const names = { github: 'GitHub', chocolatey: 'Chocolatey' };
+  const names = { github: 'GitHub', chocolatey: 'Chocolatey', scoop: 'Scoop' };
   return names[String(origin || '').toLowerCase()] || origin || '?';
 }
 

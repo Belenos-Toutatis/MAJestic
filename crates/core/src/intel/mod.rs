@@ -14,3 +14,4 @@ pub mod http;
 pub mod kev;
 pub mod lookup;
 pub mod manifest;
+pub mod scoop_catalog;

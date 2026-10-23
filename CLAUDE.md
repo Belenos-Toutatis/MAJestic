@@ -155,9 +155,18 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   Applications installées (apps du Store) ; toujours aussi « Programmes et
   fonctionnalités ». Les vraies désinstallations ne se testent qu'avec l'accord de
   l'utilisateur.
-- **Logiciels non gérés** (`intel::lookup`) : version la plus récente cherchée sur
-  GitHub quand un lien du registre mène à un dépôt, sinon dans le catalogue
-  Chocolatey. `KNOWN_REPOS` relie à leur dépôt les logiciels dont le registre ne
+- **Logiciels non gérés** (`intel::lookup`, `scan::lookup_unmanaged`) : version la plus
+  récente cherchée sur GitHub quand un lien du registre mène à un dépôt, sinon dans
+  les catalogues Scoop Main et Extras (`intel/scoop_catalog.rs` : liste des noms par
+  l'API GitHub une fois par jour, en cache ; fiche lue seulement pour un nom reconnu,
+  et refusée si son site diffère des liens du registre), sinon dans Chocolatey (qui
+  peut être en retard — Prince 10 contre 17 — ou numéroter autrement — ImageMagick
+  7.1.2-25 = 7.1.2.2500 : Scoop l'emporte). En plus, recherche par le nom dans la
+  copie locale du catalogue winget (`winget_by_name` : même nom normalisé, même
+  éditeur selon la fiche, la plus récente) → `WingetCandidate`, installable en un clic
+  (cas réel : ImageMagick, dont le nom versionné n'est pas relié par winget). Noms :
+  `name_candidates` essaie le nom entier puis son cœur, sans les mots finaux qui
+  contiennent des chiffres (`ImageMagick 7.1.1-47 Q16-HDRI` → `imagemagick`). `KNOWN_REPOS` relie à leur dépôt les logiciels dont le registre ne
   donne pas le bon lien : Euro-Office (fork d'ONLYOFFICE qui a gardé l'éditeur
   « Ascensio System SIA » et les liens onlyoffice.com) → `Euro-Office/DesktopEditors`.
   Ses étiquettes portent une révision (`v9.3.5-2` = 9.3.5.0 installé), lue comme
