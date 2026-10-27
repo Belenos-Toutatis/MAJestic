@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   closeApps: 'ask',
   ignored: [],
   schedule: null,
+  autoUpdateApp: true,
 };
 
 export const state = {

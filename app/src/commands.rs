@@ -49,6 +49,9 @@ pub struct AppInfo {
     /// `missing` (scheduled check turned off: its task was removed) or
     /// `moved` (the task runs another copy of MAJestic).
     schedule_notice: Option<String>,
+    /// May update itself automatically: not a development build (debug, or
+    /// run from cargo's `target` folder).
+    auto_updatable: bool,
 }
 
 #[tauri::command]
@@ -56,6 +59,8 @@ pub async fn app_info(state: State<'_, AppState>) -> Result<AppInfo, String> {
     let updated_from = state.updated_from.clone();
     blocking(move || AppInfo {
         app_version: majestic_core::APP_VERSION.to_string(),
+        auto_updatable: !cfg!(debug_assertions)
+            && !std::env::current_exe().is_ok_and(|e| e.components().any(|c| c.as_os_str().eq_ignore_ascii_case("target"))),
         ui_language: shell::ui_language(),
         elevated: elevation::is_elevated(),
         admin_member: elevation::is_admin_member(),
@@ -363,7 +368,17 @@ fn check_schedule() -> Option<&'static str> {
     settings.schedule.as_ref()?;
     let exe = std::env::current_exe().ok()?;
     match scheduler::registered_task() {
-        Ok(scheduler::TaskState::Runs(cmd)) if scheduler::same_command(&cmd, &exe) => None,
+        Ok(scheduler::TaskState::Runs(cmd)) if scheduler::same_command(&cmd, &exe) => {
+            // This copy is the scheduled one: its notifications must open it
+            // (the link may point to a copy that was moved or deleted).
+            if !notify::registered_exe().is_some_and(|r| scheduler::same_command(&r, &exe)) {
+                log::info!("schedule: the notifications opened another program, now this copy");
+                if let Err(e) = notify::register(&exe) {
+                    log::warn!("schedule: cannot register the notifications: {e:#}");
+                }
+            }
+            None
+        }
         Ok(scheduler::TaskState::Runs(cmd)) => {
             log::info!("schedule: the task runs {} (not this copy)", cmd.display());
             Some("moved")

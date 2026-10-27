@@ -106,6 +106,10 @@ pub struct Settings {
     pub ignored: Vec<IgnoreRule>,
     /// Scheduled background check (Windows Task Scheduler). `None` = disabled.
     pub schedule: Option<Schedule>,
+    /// Install a new version of MAJestic by itself when the window opens:
+    /// an old copy keeps old mistakes (a 0.1.1 test copy on the desktop
+    /// kept offering Edge to winget, fixed in 0.1.9).
+    pub auto_update_app: bool,
 }
 
 impl Default for Settings {
@@ -123,6 +127,7 @@ impl Default for Settings {
             close_apps: CloseAppsPolicy::Ask,
             ignored: Vec::new(),
             schedule: None,
+            auto_update_app: true,
         }
     }
 }

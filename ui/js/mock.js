@@ -497,7 +497,7 @@ function applySuccess(job) {
 const handlers = {
   async app_info() {
     await sleep(60);
-    return { appVersion: params.get('updated') ? '0.2.0' : '0.1.3', updatedFrom: params.get('updated') ? '0.1.3' : null, scheduleNotice: params.get('schedule') || null, uiLanguage: navigator.language || 'fr-FR', elevated: false, adminMember: true, dataDir: 'C:\\Users\\demo\\AppData\\Local\\MAJestic' };
+    return { appVersion: params.get('updated') ? '0.2.0' : '0.1.3', updatedFrom: params.get('updated') ? '0.1.3' : null, scheduleNotice: params.get('schedule') || null, autoUpdatable: true, uiLanguage: navigator.language || 'fr-FR', elevated: false, adminMember: true, dataDir: 'C:\\Users\\demo\\AppData\\Local\\MAJestic' };
   },
   async get_settings() {
     await sleep(60);

@@ -205,6 +205,11 @@ fn normalize_date(raw: &str) -> Option<String> {
 // Registry access
 // ---------------------------------------------------------------------------
 
+/// A text value of `HKEY_CURRENT_USER\path` (`""`: the default value).
+pub fn user_string(path: &str, name: &str) -> Option<String> {
+    RegKey::open(HKEY_CURRENT_USER, path, REG_SAM_FLAGS(0))?.string(name)
+}
+
 /// An open registry key, closed on drop.
 pub(crate) struct RegKey(HKEY);
 

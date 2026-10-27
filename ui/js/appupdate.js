@@ -23,7 +23,7 @@ export const appUpdateChecking = () => !!checking;
  * `app-update-check` when it starts and ends. `manual`: asked from Settings ›
  * About, which shows the result itself.
  */
-export function checkAppUpdate({ manual = false } = {}) {
+export function checkAppUpdate({ manual = false, quiet = false } = {}) {
   if (!settings().onlineIntel) return Promise.resolve(null);
   if (checking) return checking;
   checking = (async () => {
@@ -33,7 +33,7 @@ export function checkAppUpdate({ manual = false } = {}) {
       const known = state.appUpdate?.version;
       state.appUpdate = release?.version ? release : null;
       if ((state.appUpdate?.version || null) !== (known || null)) bus.emit('app-update', state.appUpdate);
-      if (state.appUpdate && state.appUpdate.version !== known && !manual) {
+      if (state.appUpdate && state.appUpdate.version !== known && !manual && !quiet) {
         toast(t('appUpdate.toast', { version: state.appUpdate.version }), { tone: 'info', duration: 6000 });
       }
       return state.appUpdate;
@@ -48,6 +48,23 @@ export function checkAppUpdate({ manual = false } = {}) {
   })();
   bus.emit('app-update-check');
   return checking;
+}
+
+/** A version whose automatic install failed: not tried again by itself. */
+const AUTO_FAILED_KEY = 'majestic.autoUpdateFailed';
+const autoFailed = () => { try { return localStorage.getItem(AUTO_FAILED_KEY); } catch { return null; } };
+
+/** Automatic updates are on and possible (not a development build). */
+export const autoUpdateOn = () => !!settings().autoUpdateApp && state.info?.autoUpdatable !== false;
+
+/**
+ * At start: installs the new version by itself (with the usual dialog and its
+ * progress), unless updates are running or this version already failed.
+ */
+export function autoUpdate(release) {
+  if (!release?.version || runActive() || autoFailed() === release.version) return false;
+  openAppUpdate({ auto: true });
+  return true;
 }
 
 /** Checks again every 6 hours while the window stays open (timestamps, so a PC put to sleep catches up on waking). */
@@ -108,7 +125,7 @@ function notesNodes(markdown) {
 const PHASES = ['download', 'install', 'restart'];
 
 /** The update dialog. */
-export function openAppUpdate() {
+export function openAppUpdate({ auto = false } = {}) {
   const release = state.appUpdate;
   if (!release) return;
   let installBtn = null;
@@ -142,6 +159,7 @@ export function openAppUpdate() {
     const text = has(key) ? t(key) : t('appUpdate.errors.network');
     clear(errorBox).append(banner({ tone: 'danger', title: t('appUpdate.failed'), text: `${text} ${t('appUpdate.failedManual')}` }));
     if (err?.message) console.warn('[app update]', errorText(err));
+    if (auto) { try { localStorage.setItem(AUTO_FAILED_KEY, release.version); } catch { /* ignore */ } }
     progress.hidden = true;
     installBtn.disabled = false;
     laterBtn.disabled = false;
@@ -173,6 +191,7 @@ export function openAppUpdate() {
       h('div', null, h('span', { class: 'caption' }, t('appUpdate.new')), h('strong', null, release.version)),
       release.size ? h('span', { class: 'caption subtle grow-right' }, fmt.bytes(release.size)) : null),
     release.notes ? h('div', { class: 'update-notes', tabindex: 0, tip: [t('appUpdate.notes'), t('appUpdate.notesTip')] }, notesNodes(release.notes)) : null,
+    auto ? banner({ tone: 'info', icon: 'sparkle', text: t('appUpdate.autoNote') }) : null,
     h('p', { class: 'muted' }, t('appUpdate.how')),
     busy ? banner({ tone: 'warning', text: t('appUpdate.errors.busy') }) : null,
     progress,
@@ -193,5 +212,6 @@ export function openAppUpdate() {
       },
     ],
   }).then(() => { try { unlisten?.(); } catch { /* ignore */ } });
+  if (auto && !busy) setTimeout(install, 400);
   return pageBtn;
 }

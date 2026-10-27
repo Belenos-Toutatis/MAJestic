@@ -49,7 +49,7 @@ Argument names are camelCase on the JS side.
 
 | Command | Arguments | Returns |
 |---|---|---|
-| `app_info` | – | `{ appVersion, uiLanguage, elevated, adminMember, dataDir, updatedFrom, scheduleNotice }` (`updatedFrom`: previous version right after a self-update; `scheduleNotice`: `missing` when the scheduled check was turned off because its task disappeared, `moved` when the task runs another copy; the task itself is never rewritten at start) |
+| `app_info` | – | `{ appVersion, uiLanguage, elevated, adminMember, dataDir, updatedFrom, scheduleNotice, autoUpdatable }` (`autoUpdatable`: false for a debug build or an exe under cargo's `target` folder) (`updatedFrom`: previous version right after a self-update; `scheduleNotice`: `missing` when the scheduled check was turned off because its task disappeared, `moved` when the task runs another copy; the task itself is never rewritten at start) |
 | `get_settings` | – | `Settings` |
 | `save_settings` | `{ settings }` | `Settings` (`schedule` ignored: kept as stored) |
 | `export_inventory` | `{ text: { title, filterName, fileName } }` | `{ path, packages, manual } \| null` ("Save as" dialog in Documents, then writes the `majestic-inventory` JSON: packages of winget, the Store, Chocolatey (`choco list -r`) and Scoop (`apps` folder), plus the other applications as `manual` entries with their link; error `no_scan`) |

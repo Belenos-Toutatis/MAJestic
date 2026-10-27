@@ -66,6 +66,16 @@ pub fn register(exe: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// The program the `majestic:` protocol starts, when registered.
+pub fn registered_exe() -> Option<std::path::PathBuf> {
+    let command = majestic_core::system::registry::user_string(&format!(r"{PROTOCOL_KEY}\shell\open\command"), "")?;
+    let exe = match command.strip_prefix('"') {
+        Some(rest) => rest.split('"').next()?,
+        None => command.split_whitespace().next()?,
+    };
+    Some(std::path::PathBuf::from(exe))
+}
+
 pub fn unregister() -> anyhow::Result<()> {
     for key in [AUMID_KEY, PROTOCOL_KEY] {
         // SAFETY: deleting a per-user subtree we created; missing is fine.

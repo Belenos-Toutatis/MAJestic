@@ -141,7 +141,17 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   Respecte « Utiliser les sources en ligne ». Vérifiée au lancement, puis toutes les
   6 heures fenêtre ouverte (`startAppUpdateTimer`), et par le bouton « Rechercher une
   mise à jour » de Paramètres › À propos ; `check_app_update` renvoie une erreur
-  quand GitHub ne répond pas (affichée seulement dans À propos).
+  quand GitHub ne répond pas (affichée seulement dans À propos). **Mise à jour
+  automatique** (réglage `autoUpdateApp`, activé par défaut) : à l'ouverture, une
+  nouvelle version s'installe d'elle-même (fenêtre habituelle avec sa progression) ;
+  un échec n'est pas retenté automatiquement pour la même version (`localStorage`
+  `majestic.autoUpdateFailed`) ; jamais pendant un lot ni pour une version de
+  développement (`app_info.autoUpdatable` : build debug ou exe sous un dossier
+  `target`). Pourquoi : le 27/10/2026, une vieille copie de test 0.1.1 posée sur le
+  Bureau (lancée par l'utilisateur et par la tâche planifiée) a de nouveau proposé
+  Edge à winget, alors que la 0.1.9 corrigeait ce cas. Au démarrage, si la tâche
+  planifiée lance cette copie mais que le lien `majestic:` des notifications vise
+  une autre copie, `check_schedule` le ré-enregistre (`notify::registered_exe`).
 - **Windows Update** (`system/windows_update.rs`, API COM wuapi, sans droits admin) :
   recherche en arrière-plan après chaque analyse (étape `windows_update`, événement
   `windows-updates`), classement par identifiants de catégorie (les noms sont

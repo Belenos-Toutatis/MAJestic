@@ -86,7 +86,8 @@ C'est un programme **portable** : un seul fichier `.exe`, rien à installer.
   bouton « Nouvelle version » apparaît ; un clic suffit (empreinte SHA-256
   vérifiée avant de remplacer quoi que ce soit, réglages et historique conservés).
   MAJestic vérifie au lancement puis toutes les 6 heures ; « Rechercher une mise à
-  jour » (Paramètres › À propos) vérifie tout de suite.
+  jour » (Paramètres › À propos) vérifie tout de suite. Par défaut, la nouvelle
+  version s'installe même toute seule à l'ouverture (réglable dans À propos).
 - **Aucune aide nécessaire** : chaque élément de l'interface s'explique au
   survol. Thème clair, sombre ou automatique ; français et anglais.
 
@@ -201,7 +202,8 @@ leurs sources habituelles, et seulement quand vous les lancez.
   explains itself with a tooltip.
 - Updates itself in one click when a new version is out (SHA-256 checked before
   anything is replaced; settings and history kept). Checked at start, then every
-  6 hours, or right away with “Check for updates” (Settings › About).
+  6 hours, or right away with “Check for updates” (Settings › About). By default
+  the new version even installs itself when MAJestic opens (can be turned off).
 - Uninstalls the right way from each program's panel: winget, Chocolatey or Scoop
   when they installed it, otherwise the program's own uninstaller, plus Windows'
   “Installed apps” and “Programs and Features” screens.

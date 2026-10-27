@@ -15,7 +15,7 @@ import { mountProgress } from './views/progress.js';
 import { mountSummary } from './views/summary.js';
 import { mountHistory } from './views/history.js';
 import { mountSettings } from './views/settings.js';
-import { checkAppUpdate, startAppUpdateTimer, announceUpdated, openAppUpdate } from './appupdate.js';
+import { checkAppUpdate, startAppUpdateTimer, announceUpdated, openAppUpdate, autoUpdate, autoUpdateOn } from './appupdate.js';
 
 const root = document.getElementById('app');
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -202,7 +202,9 @@ async function boot() {
   await listenersReady;
   announceUpdated();
   if (state.settings.scanOnStart) startScan();
-  checkAppUpdate();
+  // An old copy keeps old mistakes: at start, a new version installs itself.
+  const auto = autoUpdateOn();
+  checkAppUpdate({ quiet: auto }).then((release) => { if (release && auto) autoUpdate(release); });
   startAppUpdateTimer();
 }
 

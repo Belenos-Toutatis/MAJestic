@@ -168,6 +168,13 @@ export function mountSettings(container) {
         envBadges(env)),
       (appUpdateRowEl = appUpdateRow()),
       row({
+        ic: 'refresh', id: 'set-autoUpdateApp', title: t('settings.appUpdate.auto'),
+        desc: state.info?.autoUpdatable === false ? t('settings.appUpdate.autoDev') : t('settings.appUpdate.autoDesc'),
+        info: [t('settings.appUpdate.auto'), t('settings.appUpdate.autoInfo')],
+        disabled: state.info?.autoUpdatable === false,
+        control: sw('autoUpdateApp', t('settings.appUpdate.auto'), t('settings.appUpdate.autoTip')),
+      }),
+      row({
         ic: 'folder', title: t('settings.dataDir'), desc: dataDir,
         info: [t('settings.dataDir'), t('settings.dataDirInfo')],
         control: dataDir !== '—' ? iconButton({ icon: 'duplicate', label: t('settings.copyPath'), tip: [t('settings.copyPath'), t('settings.copyPathTip')], onClick: () => copy(dataDir) }) : null,
