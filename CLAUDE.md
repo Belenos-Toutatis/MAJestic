@@ -127,8 +127,10 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
   `manifest::technology_mismatch` compare `WindowsInstaller` du registre aux types des
   installateurs de la fiche (type imbriqué des zip, types des `AppsAndFeaturesEntries`),
   prudemment (MSIX, portable ou inconnu : on ne prédit rien) → raison
-  `technology_mismatch`, mise à jour non cochée. Mémoire : `history::technology_mismatches`
-  (dernier essai échoué ainsi). Navigateurs (`self_updaters.rs` : Edge, Chrome,
+  `technology_mismatch` et l'élément passe en `Manual` (« À installer vous-même »,
+  jamais dans « Tout mettre à jour », bouton « Mettre à jour dans Microsoft Edge » sur
+  la ligne) : non coché ne suffisait pas, « Tout mettre à jour (1) » le relançait. Mémoire : `history::technology_mismatches`
+  (dernier essai échoué ainsi, ou code `0x8A15008E` enregistré avant la 0.1.9). Navigateurs (`self_updaters.rs` : Edge, Chrome,
   Brave) : alternative `self_update`, commande `open_self_update` qui lance
   `msedge.exe edge://settings/help` (refusé si MAJestic tourne en administrateur) ;
   vérifié : Edge télécharge et installe aussitôt sa mise à jour.

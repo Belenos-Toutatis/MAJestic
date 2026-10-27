@@ -111,7 +111,7 @@ function onUpdatesDone(payload) {
     const current = itemByKey(r.key);
     if (current && r.state?.type === 'failed' && r.state.kind === 'technology_mismatch') {
       const reasons = (current.assessment?.reasons || []).filter((x) => x.type !== 'technology_mismatch');
-      replaceItem({ ...current, assessment: { ...current.assessment, preselect: false, reasons: [...reasons, { type: 'technology_mismatch' }] } });
+      replaceItem({ ...current, kind: 'manual', assessment: { ...current.assessment, preselect: false, reasons: [...reasons, { type: 'technology_mismatch' }] } });
       state.selection.delete(r.key);
     }
   }

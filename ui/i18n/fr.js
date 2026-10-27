@@ -320,8 +320,8 @@ export default {
     },
     manual: {
       title: "À installer vous-même",
-      text: "Une version plus récente existe, mais aucun gestionnaire de paquets ne gère ce logiciel : téléchargez-la sur le site de l’éditeur.",
-      info: "MAJestic a trouvé une version plus récente dans un catalogue public (GitHub, Chocolatey…). Il ne peut pas l’installer automatiquement.",
+      text: "Une version plus récente existe, mais aucun gestionnaire de paquets ne peut l’installer ici : utilisez le bouton proposé ou le site de l’éditeur.",
+      info: "MAJestic a trouvé une version plus récente (GitHub, Scoop, Chocolatey…), ou winget refuse de mettre à jour ce logiciel parce qu’il a été installé autrement (Microsoft Edge). MAJestic ne peut pas l’installer automatiquement : il propose la bonne voie (mise à jour intégrée, page de téléchargement).",
     },
     ignored: {
       title: "Ignorés",
@@ -550,6 +550,8 @@ export default {
     openDetails: "Détails de {name}",
     manualTip: "Aucun gestionnaire ne peut installer cette version : ouvrez les détails pour la télécharger.",
     manualBadge: "Version plus récente",
+    selfUpdate: "Installé autrement",
+    selfUpdateTip: "winget ne peut pas mettre à jour ce logiciel, installé avec son propre programme : {app} se met à jour lui-même, depuis sa page « À propos ».",
     ignoredTip: "Vous ignorez cette mise à jour. Ouvrez les détails pour ne plus l’ignorer.",
     foundOn: "Trouvée sur {origin}",
     foundOnTitle: "Version trouvée ailleurs",

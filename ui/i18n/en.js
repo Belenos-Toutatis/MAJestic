@@ -320,8 +320,8 @@ export default {
     },
     manual: {
       title: "Install it yourself",
-      text: "A newer version exists, but no package manager handles this software: download it from the publisher’s website.",
-      info: "MAJestic found a newer version in a public catalog (GitHub, Chocolatey…). It cannot install it automatically.",
+      text: "A newer version exists, but no package manager can install it here: use the button offered or the publisher’s website.",
+      info: "MAJestic found a newer version (GitHub, Scoop, Chocolatey…), or winget refuses to update this program because it was installed differently (Microsoft Edge). MAJestic cannot install it automatically: it offers the way that works (built-in update, download page).",
     },
     ignored: {
       title: "Ignored",
@@ -549,6 +549,8 @@ export default {
     detailsTip: "Why this update, release notes, links and other options (Enter or double-click).",
     openDetails: "Details for {name}",
     manualTip: "No package manager can install this version: open the details to download it.",
+    selfUpdate: "Installed differently",
+    selfUpdateTip: "winget cannot update this program, installed with its own setup: {app} updates itself, from its “About” page.",
     manualBadge: "Newer version",
     ignoredTip: "You are ignoring this update. Open the details to stop ignoring it.",
     foundOn: "Found on {origin}",

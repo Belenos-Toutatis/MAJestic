@@ -72,7 +72,9 @@ pub fn technology_mismatches(entries: &[HistoryEntry]) -> HashSet<String> {
         if !seen.insert(e.key.as_str()) {
             continue;
         }
-        if e.result == "failed" && e.failure == Some(FailureKind::TechnologyMismatch) {
+        // Before 0.1.9 the same code was recorded as "not applicable".
+        let mismatch = e.failure == Some(FailureKind::TechnologyMismatch) || e.code == Some(0x8A15_008E);
+        if e.result == "failed" && mismatch {
             found.insert(e.key.clone());
         }
     }
@@ -151,6 +153,7 @@ mod tests {
         // Most recent first.
         let entries = vec![
             failed("winget:Microsoft.Edge", FailureKind::TechnologyMismatch),
+            HistoryEntry { code: Some(0x8A15_008E), ..failed("winget:Old", FailureKind::UpgradeNotApplicable) },
             failed("winget:A", FailureKind::DownloadFailed),
             failed("winget:A", FailureKind::TechnologyMismatch),
             entry("winget:B", JobAction::Upgrade, "2.0", "succeeded"),
@@ -158,6 +161,7 @@ mod tests {
         ];
         let found = technology_mismatches(&entries);
         assert!(found.contains("winget:Microsoft.Edge"));
+        assert!(found.contains("winget:Old"), "code recorded before 0.1.9");
         // Only the most recent attempt counts, and a success clears it.
         assert!(!found.contains("winget:A"));
         assert!(!found.contains("winget:B"));

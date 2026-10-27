@@ -523,6 +523,12 @@ pub fn scan(settings: &Settings, progress: Progress) -> ScanResult {
         {
             item.assessment.reasons.push(Reason::TechnologyMismatch);
         }
+        // winget cannot install it: not a winget update at all (never in
+        // "Update all"), but something to do by hand, with its own updater
+        // (Edge's "About" page) or from the publisher's site.
+        if item.kind == ItemKind::Update && item.assessment.reasons.contains(&Reason::TechnologyMismatch) {
+            item.kind = ItemKind::Manual;
+        }
         let kev = kev_reason(kev.as_ref(), item, &today);
         let notes = item.release_notes.clone();
         let extra = std::mem::take(&mut item.assessment.reasons);

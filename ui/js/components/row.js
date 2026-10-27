@@ -8,7 +8,8 @@ import {
   needsElevation, buildJob, categoryInfo, alternativesOf, priorityOf, originName,
 } from '../model.js';
 import { avatar } from './avatar.js';
-import { badge } from './widgets.js';
+import { badge, button } from './widgets.js';
+import { openSelfUpdate } from '../actions.js';
 
 export function sourceBadge(item) {
   const s = sourceInfo(item.source);
@@ -125,7 +126,15 @@ export function itemRow(item, { mode, selected = false, onToggle, onOpen }) {
     if (elsewhere) meta.push(badge({ text: t('row.foundOn', { origin: originName(elsewhere.origin) }), tone: 'manual', icon: 'globe', focusable: true, tip: [t('row.foundOnTitle'), t('row.foundOnTip', { origin: originName(elsewhere.origin), version: elsewhere.version || '?' })] }));
   } else if (mode === 'manual') {
     const elsewhere = alternativesOf(item).find((a) => a.type === 'latest_elsewhere');
-    meta.push(badge({ text: elsewhere ? t('row.foundOn', { origin: originName(elsewhere.origin) }) : t('row.manualBadge'), tone: 'manual', icon: 'globe', focusable: true, tip: [t('row.foundOnTitle'), t('row.manualTip')] }));
+    const self = alternativesOf(item).find((a) => a.type === 'self_update');
+    if (self) {
+      // winget cannot update it (installed differently): its own updater can.
+      const app = self.app || name;
+      meta.push(badge({ text: t('row.selfUpdate'), tone: 'manual', icon: 'autoupdate', focusable: true, tip: [t('reasons.technology_mismatch.title'), t('row.selfUpdateTip', { app })] }));
+      meta.push(button({ label: t('alternatives.selfUpdate', { app }), icon: 'external', size: 'small', cls: 'row-action', tip: [t('alternatives.selfUpdate', { app }), t('alternatives.selfUpdateTip', { app })], onClick: (e) => { e?.stopPropagation?.(); openSelfUpdate(item); } }));
+    } else {
+      meta.push(badge({ text: elsewhere ? t('row.foundOn', { origin: originName(elsewhere.origin) }) : t('row.manualBadge'), tone: 'manual', icon: 'globe', focusable: true, tip: [t('row.foundOnTitle'), t('row.manualTip')] }));
+    }
   } else {
     meta.push(sourceBadge(item));
   }
