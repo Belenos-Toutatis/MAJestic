@@ -239,6 +239,29 @@ Données dans `%LOCALAPPDATA%\MAJestic` : `settings.json`, `history.jsonl`, `las
 - Pour rendre un SVG en PNG : Chrome sans fenêtre (`--headless --screenshot`)
   fonctionne, Edge non. Un profil (`--user-data-dir`) distinct par rendu.
 
+## Ménage disque
+
+Ne pas garder de données qui ne servent plus : les effacer **au fur et à mesure**,
+dès qu'elles deviennent inutiles, sans attendre la fin de la session, que le disque
+soit plein ou qu'on le demande. Pourquoi : en novembre 2026, le disque C: s'est
+rempli ; `target` pesait à lui seul 33 Go, plus 3 Go dans de vieilles copies de
+travail. Signaler ensuite à l'utilisateur la place libérée.
+
+- **`target`** : quand il dépasse une vingtaine de Go et qu'aucune compilation ni
+  aucun test de MAJestic ne tourne, `cargo clean --profile dev` (garder
+  `target\release` tant que l'exe sert à un test). Vérifier avant ce que compilent
+  les `cargo` / `rustc` actifs : d'autres projets compilent souvent en même temps.
+- **Copies de travail** (`.claude/worktrees`) : dès que le travail est fusionné ou
+  abandonné, et s'il n'y a aucun changement non commité (sinon, demander à
+  l'utilisateur), `git worktree remove` (son `target` part avec). Garder les
+  branches `worktree-agent-*` (jamais poussées).
+- **Fichiers temporaires** : ce que la session a créé (copies de journaux dans
+  `.claude\tmp\`, captures, exe de test hors de `target`, scripts et fichiers du
+  scratchpad, installateurs laissés par un test réel) s'efface dès qu'il a servi,
+  même si l'essai a échoué.
+- Ne jamais toucher à ce qu'un autre agent ou une compilation en cours utilise, ni
+  aux fichiers de l'utilisateur.
+
 ## Publication
 
 - Dépôt public `Belenos-Toutatis/MAJestic`, licence MIT.
